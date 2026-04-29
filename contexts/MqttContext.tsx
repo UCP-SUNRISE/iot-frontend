@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import mqtt, { MqttClient } from "mqtt";
 
 // 1. The payload exactly as it comes from the Python ESP32 Simulator
@@ -18,9 +18,12 @@ export interface MqttPayload {
   cube_light: number[];
 }
 
+export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'offline' | 'error';
+
 // 2. Separate Network State from Telemetry
 interface MqttContextType {
   isConnected: boolean;
+  connectionStatus: ConnectionStatus;
   liveData: MqttPayload | null;
   publish: (topic: string, message: string) => void;
   subscribe: (topic: string) => void;
@@ -29,6 +32,7 @@ interface MqttContextType {
 
 const MqttContext = createContext<MqttContextType>({
   isConnected: false,
+  connectionStatus: 'idle',
   liveData: null,
   publish: () => { },
   subscribe: () => { },
@@ -37,27 +41,61 @@ const MqttContext = createContext<MqttContextType>({
 
 export function MqttProvider({ children }: { children: React.ReactNode }) {
   // Split state: One for the UI health indicator, one for the rapidly changing charts
-  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [liveData, setLiveData] = useState<MqttPayload | null>(null);
 
   const clientRef = useRef<MqttClient | null>(null);
+  const isConnected = useMemo(() => connectionStatus === 'connected', [connectionStatus]);
 
   useEffect(() => {
+    let watchdogTimer: NodeJS.Timeout | null = null;
+
+    const resetWatchdog = () => {
+      if (watchdogTimer) clearTimeout(watchdogTimer);
+    };
+
+    const startWatchdog = () => {
+      resetWatchdog();
+      watchdogTimer = setTimeout(() => {
+        setConnectionStatus('offline');
+        if (clientRef.current) {
+          clientRef.current.end(true);
+        }
+      }, 10000);
+    };
+
     const brokerUrl = process.env.NEXT_PUBLIC_MQTT_URL || "ws://localhost:9001";
+    setConnectionStatus('connecting');
     const client = mqtt.connect(brokerUrl);
     clientRef.current = client;
+    startWatchdog();
 
     client.on("connect", () => {
       console.log("Connected to MQTT Broker");
-      setIsConnected(true);
+      setConnectionStatus('connected');
+      resetWatchdog();
     });
 
-    client.on("reconnect", () => console.log("Reconnecting..."));
-    client.on("offline", () => setIsConnected(false));
-    client.on("close", () => setIsConnected(false));
+    client.on("reconnect", () => {
+      console.log("Reconnecting...");
+      setConnectionStatus('reconnecting');
+      startWatchdog();
+    });
+
+    client.on("offline", () => {
+      setConnectionStatus('offline');
+      resetWatchdog();
+    });
+
+    client.on("close", () => {
+      setConnectionStatus((prev) => prev === 'error' ? prev : 'offline');
+      resetWatchdog();
+    });
+
     client.on("error", (err) => {
       console.error("MQTT Connection Error:", err);
-      setIsConnected(false);
+      setConnectionStatus('error');
+      resetWatchdog();
     });
 
     client.on("message", (topic, message) => {
@@ -74,8 +112,9 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
+      resetWatchdog();
       if (clientRef.current) {
-        clientRef.current.end();
+        clientRef.current.end(true);
       }
     };
   }, []);
@@ -104,7 +143,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <MqttContext.Provider value={{ isConnected, liveData, publish, subscribe, unsubscribe }}>
+    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, publish, subscribe, unsubscribe }}>
       {children}
     </MqttContext.Provider>
   );

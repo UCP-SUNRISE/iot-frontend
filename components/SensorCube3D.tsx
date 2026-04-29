@@ -11,9 +11,10 @@ interface SensorCube3DProps {
   title: string;
   sensorData: number[];
   colorScale: string;
+  unit: string;
 }
 
-export const SensorCube3D = memo(function SensorCube3D({ title, sensorData, colorScale }: SensorCube3DProps) {
+export const SensorCube3D = memo(function SensorCube3D({ title, sensorData, colorScale, unit }: SensorCube3DProps) {
   const X = [-1, 1, -1, 1, -1, 1, -1, 1, 0];
   const Y = [-1, -1, 1, 1, -1, -1, 1, 1, 0];
   const Z = [-1, -1, -1, -1, 1, 1, 1, 1, 0];
@@ -51,19 +52,23 @@ export const SensorCube3D = memo(function SensorCube3D({ title, sensorData, colo
                   z: Z,
                   // @ts-ignore: intensity is valid for mesh3d but may be missing in @types/plotly.js
                   intensity: sensorData,
+                  // @ts-ignore: intensitymode is valid for mesh3d
+                  intensitymode: "vertex",
                   colorscale: colorScale,
                   opacity: 0.4,
                   alphahull: 0,
-                  showscale: false,
+                  showscale: true,
+                  colorbar: { title: { text: unit } },
                 },
               ]}
               layout={{
+                uirevision: "true",
                 autosize: true,
-                margin: { l: 0, r: 0, b: 0, t: 0, pad: 0 },
+                margin: { l: 10, r: 70, b: 20, t: 30, pad: 0 },
                 scene: {
-                  xaxis: { showticklabels: false, showgrid: false, zeroline: false },
-                  yaxis: { showticklabels: false, showgrid: false, zeroline: false },
-                  zaxis: { showticklabels: false, showgrid: false, zeroline: false },
+                  xaxis: { title: { text: "X (Width)" }, showticklabels: false, showgrid: false, zeroline: false },
+                  yaxis: { title: { text: "Y (Depth)" }, showticklabels: false, showgrid: false, zeroline: false },
+                  zaxis: { title: { text: "Z (Height)" }, showticklabels: false, showgrid: false, zeroline: false },
                   camera: {
                     eye: { x: 1.5, y: 1.5, z: 1.2 }
                   }
@@ -87,6 +92,7 @@ export const SensorCube3D = memo(function SensorCube3D({ title, sensorData, colo
 }, (prevProps, nextProps) => {
   if (prevProps.title !== nextProps.title) return false;
   if (prevProps.colorScale !== nextProps.colorScale) return false;
+  if (prevProps.unit !== nextProps.unit) return false;
   if (!prevProps.sensorData || !nextProps.sensorData) return false;
   if (prevProps.sensorData.length !== nextProps.sensorData.length) return false;
   for (let i = 0; i < prevProps.sensorData.length; i++) {

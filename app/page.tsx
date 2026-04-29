@@ -7,7 +7,7 @@ import { CoreReadings } from "@/components/CoreReadings";
 import { SensorCube3D } from "@/components/SensorCube3D";
 
 export default function DashboardPage() {
-  const { isConnected, liveData, subscribe, unsubscribe } = useMqtt();
+  const { isConnected, connectionStatus, liveData, subscribe, unsubscribe } = useMqtt();
 
   useEffect(() => {
     if (isConnected) {
@@ -16,12 +16,23 @@ export default function DashboardPage() {
     }
   }, [isConnected, subscribe, unsubscribe]);
 
-  if (!isConnected) {
+  if (connectionStatus === 'error' || connectionStatus === 'offline') {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background text-destructive">
+        <div className="flex flex-col items-center">
+          <p className="font-bold text-xl mb-2">MQTT Connection Offline</p>
+          <p>Unable to connect to the Edge Server. Please verify network and MQTT broker.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background text-muted-foreground">
         <div className="flex flex-col items-center">
           <div className="h-8 w-8 rounded-full border-4 border-primary border-t-transparent animate-spin mb-4" />
-          <p>Connecting to Edge Server...</p>
+          <p>{connectionStatus === 'reconnecting' ? 'Reconnecting to Edge Server...' : 'Connecting to Edge Server...'}</p>
         </div>
       </div>
     );
@@ -67,16 +78,19 @@ export default function DashboardPage() {
           title="Temperature Matrix (°C)"
           sensorData={liveData.cube_th.map(d => d.t)}
           colorScale="Hot"
+          unit="°C"
         />
         <SensorCube3D
           title="Humidity Matrix (%)"
           sensorData={liveData.cube_th.map(d => d.h)}
           colorScale="Blues"
+          unit="%"
         />
         <SensorCube3D
           title="Light Intensity (Lux)"
           sensorData={liveData.cube_light}
           colorScale="Viridis"
+          unit="LUX"
         />
       </div>
     </main>
