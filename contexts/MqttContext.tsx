@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import mqtt, { MqttClient } from "mqtt";
-import { TempHumidityNode, LightNode } from "@/types/telemetry";
+import { TempHumidityNode, LightNode, DeviceRecord } from "@/types/telemetry";
 
 // 1. The payload exactly as it comes from the Python ESP32 Simulator
 export interface MqttPayload {
@@ -26,6 +26,7 @@ interface MqttContextType {
   isConnected: boolean;
   connectionStatus: ConnectionStatus;
   liveData: MqttPayload | null;
+  registeredDevices: DeviceRecord[];
   publish: (topic: string, message: string) => void;
   subscribe: (topic: string) => void;
   unsubscribe: (topic: string) => void;
@@ -35,6 +36,7 @@ const MqttContext = createContext<MqttContextType>({
   isConnected: false,
   connectionStatus: 'idle',
   liveData: null,
+  registeredDevices: [],
   publish: () => { },
   subscribe: () => { },
   unsubscribe: () => { },
@@ -44,6 +46,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   // Split state: One for the UI health indicator, one for the rapidly changing charts
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [liveData, setLiveData] = useState<MqttPayload | null>(null);
+  const [registeredDevices, setRegisteredDevices] = useState<DeviceRecord[]>([]);
 
   const clientRef = useRef<MqttClient | null>(null);
   const isConnected = useMemo(() => connectionStatus === 'connected', [connectionStatus]);
@@ -75,6 +78,10 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       console.log("Connected to MQTT Broker");
       setConnectionStatus('connected');
       resetWatchdog();
+      // Subscribe to retained registry — broker delivers the last retained msg immediately
+      client.subscribe('sunrise/system/registry', (err) => {
+        if (err) console.error('Failed to subscribe to registry', err);
+      });
     });
 
     client.on("reconnect", () => {
@@ -100,8 +107,17 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     });
 
     client.on("message", (topic, message) => {
-      // Global message handler. We filter by 'live' to update the chart state.
-      // Other components can subscribe to different topics and handle their own logic.
+      if (topic === 'sunrise/system/registry') {
+        try {
+          const registry: DeviceRecord[] = JSON.parse(message.toString());
+          setRegisteredDevices(registry);
+        } catch (err) {
+          console.error('Failed to parse registry payload', err);
+        }
+        return;
+      }
+
+      // Live telemetry — forwarded to chart state
       if (topic.includes("live")) {
         try {
           const payload = JSON.parse(message.toString());
@@ -144,7 +160,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, publish, subscribe, unsubscribe }}>
+    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, registeredDevices, publish, subscribe, unsubscribe }}>
       {children}
     </MqttContext.Provider>
   );

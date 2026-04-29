@@ -7,7 +7,7 @@ import { CoreReadings } from "@/components/CoreReadings";
 import { SensorCube3D } from "@/components/SensorCube3D";
 
 export default function DashboardPage() {
-  const { isConnected, connectionStatus, liveData, subscribe, unsubscribe } = useMqtt();
+  const { isConnected, connectionStatus, liveData, registeredDevices, subscribe, unsubscribe } = useMqtt();
 
   useEffect(() => {
     if (isConnected) {
@@ -61,7 +61,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-1 h-full">
           <SystemHealth
             isConnected={isConnected}
-            deviceId={liveData.metadata.device_id}
+            registeredDevices={registeredDevices}
           />
         </div>
         <div className="lg:col-span-2 h-full">
