@@ -76,19 +76,22 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">
         <SensorCube3D
           title="Temperature Matrix (°C)"
-          sensorData={liveData.cube_th.map(d => d.t)}
+          sensorData={liveData.cube_th}
+          dataKey="t"
           colorScale="Hot"
           unit="°C"
         />
         <SensorCube3D
           title="Humidity Matrix (%)"
-          sensorData={liveData.cube_th.map(d => d.h)}
+          sensorData={liveData.cube_th}
+          dataKey="h"
           colorScale="Blues"
           unit="%"
         />
         <SensorCube3D
           title="Light Intensity (Lux)"
           sensorData={liveData.cube_light}
+          dataKey="lux"
           colorScale="Viridis"
           unit="LUX"
         />

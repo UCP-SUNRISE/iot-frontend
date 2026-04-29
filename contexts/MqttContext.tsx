@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import mqtt, { MqttClient } from "mqtt";
+import { TempHumidityNode, LightNode } from "@/types/telemetry";
 
 // 1. The payload exactly as it comes from the Python ESP32 Simulator
 export interface MqttPayload {
@@ -14,8 +15,8 @@ export interface MqttPayload {
     food_temp: number;
     pressure: number;
   };
-  cube_th: Array<{ t: number; h: number }>;
-  cube_light: number[];
+  cube_th: TempHumidityNode[];
+  cube_light: LightNode[];
 }
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'offline' | 'error';
