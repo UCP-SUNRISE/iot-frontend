@@ -3,6 +3,8 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { MqttProvider } from "@/contexts/MqttContext";
+import { Auth0Provider } from "@auth0/nextjs-auth0/client";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -33,9 +35,12 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground dark">
-        <MqttProvider>
-          {children}
-        </MqttProvider>
+        <Auth0Provider>
+          <MqttProvider>
+            {children}
+          </MqttProvider>
+        </Auth0Provider>
+        <Toaster />
       </body>
     </html>
   );

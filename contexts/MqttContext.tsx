@@ -2,12 +2,13 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import mqtt, { MqttClient } from "mqtt";
+import { toast } from "sonner";
 import { TempHumidityNode, LightNode, DeviceRecord } from "@/types/telemetry";
 
 // 1. The payload exactly as it comes from the Python ESP32 Simulator
 export interface MqttPayload {
   metadata: {
-    timestamp: string;
+    timestamp_ms: number;
     device_id: string;
   };
   core: {
@@ -21,15 +22,32 @@ export interface MqttPayload {
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'offline' | 'error';
 
+export interface ExperimentStatus {
+  active: boolean;
+  sessionId: string | null;
+  startTimestamp: number | null; // Unix ms from retained topic
+}
+
+export interface EventLog {
+  time: Date;
+  message: string;
+  type: 'alert' | 'info';
+}
+
 // 2. Separate Network State from Telemetry
 interface MqttContextType {
   isConnected: boolean;
   connectionStatus: ConnectionStatus;
   liveData: MqttPayload | null;
   registeredDevices: DeviceRecord[];
+  experimentStatus: ExperimentStatus;
+  eventLogs: EventLog[];
+  dbQueryResponse: object[] | null;
   publish: (topic: string, message: string) => void;
   subscribe: (topic: string) => void;
   unsubscribe: (topic: string) => void;
+  sendCommand: (payload: object) => void;
+  queryDb: (query: string) => void;
 }
 
 const MqttContext = createContext<MqttContextType>({
@@ -37,9 +55,14 @@ const MqttContext = createContext<MqttContextType>({
   connectionStatus: 'idle',
   liveData: null,
   registeredDevices: [],
+  experimentStatus: { active: false, sessionId: null, startTimestamp: null },
+  eventLogs: [],
+  dbQueryResponse: null,
   publish: () => { },
   subscribe: () => { },
   unsubscribe: () => { },
+  sendCommand: () => { },
+  queryDb: () => { },
 });
 
 export function MqttProvider({ children }: { children: React.ReactNode }) {
@@ -47,6 +70,13 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [liveData, setLiveData] = useState<MqttPayload | null>(null);
   const [registeredDevices, setRegisteredDevices] = useState<DeviceRecord[]>([]);
+  const [experimentStatus, setExperimentStatus] = useState<ExperimentStatus>({ active: false, sessionId: null, startTimestamp: null });
+  const [eventLogs, setEventLogs] = useState<EventLog[]>([]);
+  const [dbQueryResponse, setDbQueryResponse] = useState<object[] | null>(null);
+
+  const appendLog = (message: string, type: EventLog['type'] = 'info') => {
+    setEventLogs(prev => [{ time: new Date(), message, type }, ...prev].slice(0, 100));
+  };
 
   const clientRef = useRef<MqttClient | null>(null);
   const isConnected = useMemo(() => connectionStatus === 'connected', [connectionStatus]);
@@ -65,7 +95,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
         if (clientRef.current) {
           clientRef.current.end(true);
         }
-      }, 10000);
+      }, 5000);
     };
 
     const brokerUrl = process.env.NEXT_PUBLIC_MQTT_URL || "ws://localhost:9001";
@@ -78,9 +108,18 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       console.log("Connected to MQTT Broker");
       setConnectionStatus('connected');
       resetWatchdog();
-      // Subscribe to retained registry — broker delivers the last retained msg immediately
+      // Subscribe to retained topics — broker delivers the last retained msg immediately
       client.subscribe('sunrise/system/registry', (err) => {
         if (err) console.error('Failed to subscribe to registry', err);
+      });
+      client.subscribe('sunrise/system/experiment_status', (err) => {
+        if (err) console.error('Failed to subscribe to experiment_status', err);
+      });
+      client.subscribe('sunrise/alerts/thermal', (err) => {
+        if (err) console.error('Failed to subscribe to thermal alerts', err);
+      });
+      client.subscribe('sunrise/db/response', (err) => {
+        if (err) console.error('Failed to subscribe to db/response', err);
       });
     });
 
@@ -113,6 +152,53 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
           setRegisteredDevices(registry);
         } catch (err) {
           console.error('Failed to parse registry payload', err);
+        }
+        return;
+      }
+
+      if (topic === 'sunrise/system/experiment_status') {
+        try {
+          const data = JSON.parse(message.toString());
+          setExperimentStatus({
+            active: data.active,
+            sessionId: data.session_id ?? null,
+            startTimestamp: data.start_timestamp ?? null, // Unix ms
+          });
+          const logMsg = data.active
+            ? `Session started: ${data.session_id}`
+            : 'Session stopped.';
+          appendLog(logMsg, 'info');
+        } catch (err) {
+          console.error('Failed to parse experiment_status payload', err);
+        }
+        return;
+      }
+
+      if (topic === 'sunrise/alerts/thermal') {
+        try {
+          const alert = JSON.parse(message.toString());
+          const { type, message: alertMessage, timestamp, elapsed_formatted } = alert;
+
+          const description = `Elapsed: ${elapsed_formatted} | Time: ${new Date(timestamp).toLocaleTimeString()}`;
+
+          if (type === 'target') {
+            toast.error(alertMessage, { description, duration: 10000 });
+          } else if (type === 'time') {
+            toast.warning(alertMessage, { description, duration: Infinity });
+          }
+          appendLog(`[${type.toUpperCase()}] ${alertMessage} (${elapsed_formatted})`, 'alert');
+        } catch (err) {
+          console.error('Failed to parse thermal alert payload', err);
+        }
+        return;
+      }
+
+      if (topic === 'sunrise/db/response') {
+        try {
+          const data = JSON.parse(message.toString());
+          setDbQueryResponse(Array.isArray(data) ? data : [data]);
+        } catch (err) {
+          console.error('Failed to parse db/response payload', err);
         }
         return;
       }
@@ -159,8 +245,24 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const sendCommand = useCallback((payload: object) => {
+    if (clientRef.current && clientRef.current.connected) {
+      clientRef.current.publish('sunrise/system/control', JSON.stringify(payload));
+    } else {
+      console.warn('Cannot send command: MQTT client is disconnected.');
+    }
+  }, []);
+
+  const queryDb = useCallback((query: string) => {
+    if (clientRef.current && clientRef.current.connected) {
+      clientRef.current.publish('sunrise/db/request', JSON.stringify({ query }));
+    } else {
+      console.warn('Cannot query DB: MQTT client is disconnected.');
+    }
+  }, []);
+
   return (
-    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, registeredDevices, publish, subscribe, unsubscribe }}>
+    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, publish, subscribe, unsubscribe, sendCommand, queryDb }}>
       {children}
     </MqttContext.Provider>
   );

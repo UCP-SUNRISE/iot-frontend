@@ -2,12 +2,19 @@
 
 import { useEffect } from "react";
 import { useMqtt } from "@/contexts/MqttContext";
+import { withPageAuthRequired, useUser } from "@auth0/nextjs-auth0/client";
 import { SystemHealth } from "@/components/SystemHealth";
 import { CoreReadings } from "@/components/CoreReadings";
 import { SensorCube3D } from "@/components/SensorCube3D";
+import { ExperimentControls } from "@/components/ExperimentControls";
+import { ExperimentLiveChart } from "@/components/ExperimentLiveChart";
+import { ExperimentTimer } from "@/components/ExperimentTimer";
+import { LiveLogs } from "@/components/LiveLogs";
+import { ExperimentHistory } from "@/components/ExperimentHistory";
 
-export default function DashboardPage() {
-  const { isConnected, connectionStatus, liveData, registeredDevices, subscribe, unsubscribe } = useMqtt();
+export default withPageAuthRequired(function DashboardPage() {
+  const { isLoading } = useUser();
+  const { isConnected, connectionStatus, liveData, registeredDevices, experimentStatus, subscribe, unsubscribe } = useMqtt();
 
   useEffect(() => {
     if (isConnected) {
@@ -16,34 +23,12 @@ export default function DashboardPage() {
     }
   }, [isConnected, subscribe, unsubscribe]);
 
-  if (connectionStatus === 'error' || connectionStatus === 'offline') {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background text-destructive">
-        <div className="flex flex-col items-center">
-          <p className="font-bold text-xl mb-2">MQTT Connection Offline</p>
-          <p>Unable to connect to the Edge Server. Please verify network and MQTT broker.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
+  if (!isLoading && !isConnected && (connectionStatus === 'connecting')) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background text-muted-foreground">
         <div className="flex flex-col items-center">
           <div className="h-8 w-8 rounded-full border-4 border-primary border-t-transparent animate-spin mb-4" />
-          <p>{connectionStatus === 'reconnecting' ? 'Reconnecting to Edge Server...' : 'Connecting to Edge Server...'}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!liveData) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background text-muted-foreground">
-        <div className="flex flex-col items-center">
-          <div className="h-8 w-8 rounded-full border-4 border-primary border-t-transparent animate-spin mb-4" />
-          <p>Awaiting telemetry...</p>
+          <p>Connecting to Edge Server...</p>
         </div>
       </div>
     );
@@ -56,7 +41,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Real-time Scientific Telemetry</p>
       </header>
 
-      {/* Top Section: Health & Core Stats */}
+      {/* Top Section: Health, Core Stats & Experiment Control */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 h-full">
           <SystemHealth
@@ -66,31 +51,48 @@ export default function DashboardPage() {
         </div>
         <div className="lg:col-span-2 h-full">
           <CoreReadings
-            waterTemp={liveData.core.water_temp}
-            foodTemp={liveData.core.food_temp}
+            waterTemp={liveData?.core?.water_temp ?? 0}
+            foodTemp={liveData?.core?.food_temp ?? 0}
           />
         </div>
       </div>
+
+      {/* Experiment Control & Live Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-4">
+          <ExperimentControls />
+          <ExperimentTimer />
+          <LiveLogs />
+        </div>
+        {experimentStatus.sessionId && (
+          <div className="lg:col-span-2 h-full min-h-[400px]">
+            <ExperimentLiveChart />
+          </div>
+        )}
+      </div>
+
+      {/* History */}
+      <ExperimentHistory />
 
       {/* Bottom Section: 3D Visualization Cubes */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">
         <SensorCube3D
           title="Temperature Matrix (°C)"
-          sensorData={liveData.cube_th}
+          sensorData={liveData?.cube_th ?? []}
           dataKey="t"
           colorScale="Hot"
           unit="°C"
         />
         <SensorCube3D
           title="Humidity Matrix (%)"
-          sensorData={liveData.cube_th}
+          sensorData={liveData?.cube_th ?? []}
           dataKey="h"
           colorScale="Blues"
           unit="%"
         />
         <SensorCube3D
           title="Light Intensity (Lux)"
-          sensorData={liveData.cube_light}
+          sensorData={liveData?.cube_light ?? []}
           dataKey="lux"
           colorScale="Viridis"
           unit="LUX"
@@ -98,4 +100,4 @@ export default function DashboardPage() {
       </div>
     </main>
   );
-}
+});
