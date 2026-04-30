@@ -15,52 +15,34 @@ interface ChartPoint {
 }
 
 export function ExperimentLiveChart() {
-  const { liveData, experimentStatus } = useMqtt();
-  const [history, setHistory] = useState<ChartPoint[]>([]);
+  const { chartData, experimentStatus, queryDb, isConnected } = useMqtt();
 
-  // Clear history when the session changes (a new experiment starts)
+  // Hydrate chart on mount or when experiment becomes active
   useEffect(() => {
-    if (experimentStatus.active) {
-      setHistory([]);
+    if (isConnected && experimentStatus.active && experimentStatus.sessionId) {
+      queryDb("get_live_chart", { session_id: experimentStatus.sessionId });
     }
-  }, [experimentStatus.sessionId, experimentStatus.active]);
-
-  // Buffer live data
-  useEffect(() => {
-    // Only buffer data if an experiment is actively running
-    if (experimentStatus.active && liveData) {
-      const ms = liveData.metadata.timestamp_ms;
-      
-      let timeStr = "";
-      // Handle both full Epoch timestamps (PC sim) and uptime MS (ESP32 real hardware)
-      if (ms > 1000000000000) {
-        timeStr = new Date(ms).toLocaleTimeString([], { hour12: false });
-      } else {
-        timeStr = new Date(ms).toISOString().substring(11, 19);
-      }
-
-      setHistory(prev => {
-        // Prevent duplicate timestamps in case of duplicate MQTT deliveries
-        if (prev.length > 0 && prev[prev.length - 1].time === timeStr) {
-          return prev;
-        }
-
-        const next = [...prev, {
-          time: timeStr,
-          food: liveData.core.food_temp || null, // handle missing values
-          water: liveData.core.water_temp || null,
-        }];
-
-        // Keep a rolling window of the last 30 points
-        if (next.length > 30) {
-          return next.slice(next.length - 30);
-        }
-        return next;
-      });
-    }
-  }, [liveData, experimentStatus.active]);
+  }, [isConnected, experimentStatus.active, experimentStatus.sessionId, queryDb]);
 
   // If no experiment is active and we have no history, do not render anything inside the plot space
+  const history = chartData.map(d => {
+    const ms = typeof d.timestamp === 'string' ? new Date(d.timestamp).getTime() : d.timestamp;
+    
+    let timeStr = "";
+    if (ms > 1000000000000) {
+      timeStr = new Date(ms).toLocaleTimeString([], { hour12: false });
+    } else {
+      // Fallback for uptime-style MS if they exist in chartData
+      timeStr = new Date(ms).toISOString().substring(11, 19);
+    }
+
+    return {
+      time: timeStr,
+      food: d.food_temp,
+      water: d.water_temp
+    };
+  });
+
   const times = history.map(d => d.time);
   const foodTemps = history.map(d => d.food);
   const waterTemps = history.map(d => d.water);

@@ -43,11 +43,12 @@ interface MqttContextType {
   experimentStatus: ExperimentStatus;
   eventLogs: EventLog[];
   dbQueryResponse: object[] | null;
+  chartData: any[];
   publish: (topic: string, message: string) => void;
   subscribe: (topic: string) => void;
   unsubscribe: (topic: string) => void;
   sendCommand: (payload: object) => void;
-  queryDb: (query: string) => void;
+  queryDb: (query: string, params?: object) => void;
 }
 
 const MqttContext = createContext<MqttContextType>({
@@ -58,6 +59,7 @@ const MqttContext = createContext<MqttContextType>({
   experimentStatus: { active: false, sessionId: null, startTimestamp: null },
   eventLogs: [],
   dbQueryResponse: null,
+  chartData: [],
   publish: () => { },
   subscribe: () => { },
   unsubscribe: () => { },
@@ -73,6 +75,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   const [experimentStatus, setExperimentStatus] = useState<ExperimentStatus>({ active: false, sessionId: null, startTimestamp: null });
   const [eventLogs, setEventLogs] = useState<EventLog[]>([]);
   const [dbQueryResponse, setDbQueryResponse] = useState<object[] | null>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
 
   const appendLog = (message: string, type: EventLog['type'] = 'info') => {
     setEventLogs(prev => [{ time: new Date(), message, type }, ...prev].slice(0, 100));
@@ -120,6 +123,9 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       });
       client.subscribe('sunrise/db/response', (err) => {
         if (err) console.error('Failed to subscribe to db/response', err);
+      });
+      client.subscribe('sunrise/db/saved_point', (err) => {
+        if (err) console.error('Failed to subscribe to db/saved_point', err);
       });
     });
 
@@ -196,9 +202,27 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       if (topic === 'sunrise/db/response') {
         try {
           const data = JSON.parse(message.toString());
-          setDbQueryResponse(Array.isArray(data) ? data : [data]);
+          if (data.response_to === 'get_live_chart') {
+            setChartData(data.data || []);
+          } else {
+            setDbQueryResponse(Array.isArray(data) ? data : [data]);
+          }
         } catch (err) {
           console.error('Failed to parse db/response payload', err);
+        }
+        return;
+      }
+
+      if (topic === 'sunrise/db/saved_point') {
+        try {
+          const point = JSON.parse(message.toString());
+          setChartData(prev => {
+            const next = [...prev, point];
+            if (next.length > 1000) return next.slice(next.length - 1000);
+            return next;
+          });
+        } catch (err) {
+          console.error('Failed to parse saved_point payload', err);
         }
         return;
       }
@@ -253,16 +277,16 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const queryDb = useCallback((query: string) => {
+  const queryDb = useCallback((query: string, params: object = {}) => {
     if (clientRef.current && clientRef.current.connected) {
-      clientRef.current.publish('sunrise/db/request', JSON.stringify({ query }));
+      clientRef.current.publish('sunrise/db/request', JSON.stringify({ query, ...params }));
     } else {
       console.warn('Cannot query DB: MQTT client is disconnected.');
     }
   }, []);
 
   return (
-    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, publish, subscribe, unsubscribe, sendCommand, queryDb }}>
+    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, chartData, publish, subscribe, unsubscribe, sendCommand, queryDb }}>
       {children}
     </MqttContext.Provider>
   );
