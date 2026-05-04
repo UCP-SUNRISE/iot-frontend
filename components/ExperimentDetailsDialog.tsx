@@ -15,6 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { ThermalLineChart } from "./ThermalLineChart";
 import { SensorCube3D } from "./SensorCube3D";
 import { toast } from "sonner";
+import { exportSessionToExcel } from "@/lib/exportUtils";
 
 interface ExperimentDetailsDialogProps {
   sessionId: string | null;
@@ -49,7 +50,9 @@ export function ExperimentDetailsDialog({ sessionId, isOpen, onOpenChange }: Exp
   }, [dbQueryResponse, sessionId]);
 
   const handleExport = () => {
-    toast.success("Export requested", { description: `Will request CSV export for ${sessionId}` });
+    if (!sessionDetails) return;
+    toast.success("Generating XLSX", { description: "Preparing multi-sheet telemetry report..." });
+    exportSessionToExcel(sessionDetails, sessionId || "unknown");
   };
 
   const currentPoint = useMemo(() => {
@@ -83,7 +86,7 @@ export function ExperimentDetailsDialog({ sessionId, isOpen, onOpenChange }: Exp
               )}
             </DialogDescription>
           </div>
-          <Button onClick={handleExport} size="sm">Export CSV</Button>
+          <Button onClick={handleExport} size="sm">Export XLSX</Button>
         </DialogHeader>
 
         <div className="flex-grow overflow-y-auto p-6 space-y-8 pb-32">

@@ -87,7 +87,8 @@ export function ExperimentHistory() {
   };
 
   const handleExport = (sessionId: string) => {
-    toast.info("Export requested", { description: `Will request CSV export for ${sessionId}` });
+    setSelectedSession(sessionId);
+    toast.info("Opening Export View", { description: "Use the 'Export XLSX' button inside the details panel." });
   };
 
   const handleDelete = (sessionId: string) => {
