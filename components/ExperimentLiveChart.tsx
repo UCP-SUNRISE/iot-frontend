@@ -27,7 +27,7 @@ export function ExperimentLiveChart() {
   // If no experiment is active and we have no history, do not render anything inside the plot space
   const history = chartData.map(d => {
     const ms = typeof d.timestamp === 'string' ? new Date(d.timestamp).getTime() : d.timestamp;
-    
+
     let timeStr = "";
     if (ms > 1000000000000) {
       timeStr = new Date(ms).toLocaleTimeString([], { hour12: false });
@@ -54,17 +54,22 @@ export function ExperimentLiveChart() {
           Live Thermal Trend
         </CardTitle>
         <CardDescription>
-          {experimentStatus.active 
-            ? `Tracking Session: ${experimentStatus.sessionId}` 
+          {experimentStatus.active
+            ? `Tracking Session: ${experimentStatus.sessionId}`
             : `Final Result: ${experimentStatus.sessionId ?? 'Unknown Session'}`
           }
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="flex-grow p-0 relative min-h-[300px]">
         {history.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-            {experimentStatus.active ? "Buffering telemetry..." : "No data available."}
+            {!experimentStatus.sessionId
+              ? "Waiting for session to start..."
+              : experimentStatus.active
+                ? "Buffering telemetry..."
+                : "No data available."
+            }
           </div>
         ) : (
           <div className="absolute inset-0">
@@ -95,14 +100,14 @@ export function ExperimentLiveChart() {
                 margin: { l: 40, r: 20, t: 30, b: 60, pad: 0 },
                 paper_bgcolor: 'transparent',
                 plot_bgcolor: 'transparent',
-                xaxis: { 
+                xaxis: {
                   title: { text: 'Time', font: { size: 10 } },
                   showgrid: true,
                   gridcolor: 'rgba(255,255,255,0.05)',
                   tickangle: -45,
                   tickfont: { size: 10 }
                 },
-                yaxis: { 
+                yaxis: {
                   title: { text: 'Temp (°C)', font: { size: 10 } },
                   showgrid: true,
                   gridcolor: 'rgba(255,255,255,0.05)',

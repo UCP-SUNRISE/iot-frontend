@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,7 @@ import { PreExperimentDialog } from "./PreExperimentDialog";
 
 export function ExperimentControls() {
   const { user, isLoading } = useUser();
-  const { isConnected, experimentStatus, sendCommand, connectionStatus } = useMqtt();
-  const [sessionName, setSessionName] = useState("");
+  const { isConnected, experimentStatus, sendCommand, connectionStatus, registeredDevices } = useMqtt();
   const [isPending, startTransition] = useTransition();
 
   const handleStartTransition = () => {
@@ -58,7 +57,9 @@ export function ExperimentControls() {
   }
 
   // --- Authenticated view ---
-  const isDisabled = !isConnected || isPending;
+  const hasOnlineDevice = registeredDevices.some(device => device.last_status === 'online');
+  const isStartDisabled = !isConnected || isPending || !hasOnlineDevice;
+  const isStopDisabled = !isConnected || isPending;
 
   return (
     <Card>
@@ -88,7 +89,7 @@ export function ExperimentControls() {
               id="stop-experiment-btn"
               variant="destructive"
               className="w-full"
-              disabled={isDisabled}
+              disabled={isStopDisabled}
               onClick={handleStop}
             >
               {isPending ? "Stopping..." : "Stop Experiment"}
@@ -96,10 +97,16 @@ export function ExperimentControls() {
           </>
         ) : (
           <PreExperimentDialog
-            isDisabled={isDisabled}
+            isDisabled={isStartDisabled}
             isPending={isPending}
             onStart={handleStartTransition}
           />
+        )}
+
+        {isConnected && !hasOnlineDevice && (
+          <p className="text-xs text-amber-500 font-medium">
+            Warning: No online sensors detected. You cannot start a new experiment.
+          </p>
         )}
 
         {!isConnected && (

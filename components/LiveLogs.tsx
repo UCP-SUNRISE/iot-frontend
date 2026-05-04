@@ -8,7 +8,7 @@ export function LiveLogs() {
   const { eventLogs } = useMqtt();
 
   return (
-    <Card className="flex flex-col h-full">
+    <Card className="flex flex-col">
       <CardHeader className="pb-2 pt-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
@@ -33,9 +33,8 @@ export function LiveLogs() {
               >
                 {/* Coloured dot */}
                 <span
-                  className={`mt-1 flex-shrink-0 h-2 w-2 rounded-full ${
-                    log.type === "alert" ? "bg-red-500" : "bg-sky-400"
-                  }`}
+                  className={`mt-1 flex-shrink-0 h-2 w-2 rounded-full ${log.type === "alert" ? "bg-red-500" : "bg-sky-400"
+                    }`}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium text-foreground leading-snug break-words">

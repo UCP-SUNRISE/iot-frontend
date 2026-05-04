@@ -5,6 +5,8 @@ import { useMqtt } from "@/contexts/MqttContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MoreVertical } from "lucide-react";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -13,6 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SessionRow {
   session_id: string;
@@ -71,6 +80,18 @@ export function ExperimentHistory() {
     queryDb("get_sessions");
   };
 
+  const handleViewDetails = (sessionId: string) => {
+    toast.info("Navigation pending", { description: `Will navigate to details for ${sessionId}` });
+  };
+
+  const handleExport = (sessionId: string) => {
+    toast.info("Export requested", { description: `Will request CSV export for ${sessionId}` });
+  };
+
+  const handleDelete = (sessionId: string) => {
+    toast.error("Delete requested", { description: `Will request deletion of ${sessionId}` });
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -107,6 +128,7 @@ export function ExperimentHistory() {
                   <TableHead>End Time</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead className="text-right">Max Temp (°C)</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -138,6 +160,31 @@ export function ExperimentHistory() {
                     </TableCell>
                     <TableCell className="text-right text-xs tabular-nums">
                       {session.temperature_max ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewDetails(session.session_id)}>
+                            Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleExport(session.session_id)}>
+                            Export data
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            className="text-red-600 focus:text-red-600" 
+                            onClick={() => handleDelete(session.session_id)}
+                          >
+                            Delete experiment
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

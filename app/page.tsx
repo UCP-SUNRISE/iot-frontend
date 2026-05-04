@@ -64,15 +64,12 @@ export default withPageAuthRequired(function DashboardPage() {
           <ExperimentTimer />
           <LiveLogs />
         </div>
-        {experimentStatus.sessionId && (
-          <div className="lg:col-span-2 h-full min-h-[400px]">
-            <ExperimentLiveChart />
-          </div>
-        )}
+        <div className="lg:col-span-2 h-full min-h-[400px]">
+          <ExperimentLiveChart />
+        </div>
       </div>
 
-      {/* History */}
-      <ExperimentHistory />
+
 
       {/* Bottom Section: 3D Visualization Cubes */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">
@@ -98,6 +95,8 @@ export default withPageAuthRequired(function DashboardPage() {
           unit="LUX"
         />
       </div>
+      {/* History */}
+      <ExperimentHistory />
     </main>
   );
 });
