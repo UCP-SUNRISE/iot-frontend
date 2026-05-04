@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { useMqtt } from "@/contexts/MqttContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-
-// Dynamically import Plotly to prevent SSR issues
-const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
+import { ThermalLineChart } from "./ThermalLineChart";
 
 interface ChartPoint {
   time: string;
@@ -43,10 +40,6 @@ export function ExperimentLiveChart() {
     };
   });
 
-  const times = history.map(d => d.time);
-  const foodTemps = history.map(d => d.food);
-  const waterTemps = history.map(d => d.water);
-
   return (
     <Card className="w-full h-full min-h-[400px] flex flex-col overflow-hidden">
       <CardHeader className="pb-0 pt-4 px-4">
@@ -73,60 +66,7 @@ export function ExperimentLiveChart() {
           </div>
         ) : (
           <div className="absolute inset-0">
-            <Plot
-              data={[
-                {
-                  x: times,
-                  y: waterTemps,
-                  type: 'scatter',
-                  mode: 'lines+markers',
-                  name: 'Water Temp',
-                  line: { color: '#0ea5e9', width: 3 }, // Sky Blue
-                  marker: { size: 6 }
-                },
-                {
-                  x: times,
-                  y: foodTemps,
-                  type: 'scatter',
-                  mode: 'lines+markers',
-                  name: 'Food Temp',
-                  line: { color: '#f97316', width: 3 }, // Orange
-                  marker: { size: 6 }
-                }
-              ]}
-              layout={{
-                uirevision: 'true', // Preserve zoom/pan state during live updates
-                autosize: true,
-                margin: { l: 40, r: 20, t: 30, b: 60, pad: 0 },
-                paper_bgcolor: 'transparent',
-                plot_bgcolor: 'transparent',
-                xaxis: {
-                  title: { text: 'Time', font: { size: 10 } },
-                  showgrid: true,
-                  gridcolor: 'rgba(255,255,255,0.05)',
-                  tickangle: -45,
-                  tickfont: { size: 10 }
-                },
-                yaxis: {
-                  title: { text: 'Temp (°C)', font: { size: 10 } },
-                  showgrid: true,
-                  gridcolor: 'rgba(255,255,255,0.05)',
-                  tickfont: { size: 10 }
-                },
-                legend: {
-                  orientation: 'h',
-                  yanchor: 'bottom',
-                  y: 1.02,
-                  xanchor: 'right',
-                  x: 1,
-                  font: { size: 10 }
-                },
-                font: { color: '#a1a1aa' } // Tailwind's zinc-400
-              }}
-              useResizeHandler={true}
-              style={{ width: '100%', height: '100%' }}
-              config={{ displayModeBar: false, responsive: true }}
-            />
+            <ThermalLineChart data={history.map(h => ({ time: h.time, water: h.water, food: h.food }))} />
           </div>
         )}
       </CardContent>

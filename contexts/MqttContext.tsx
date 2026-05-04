@@ -170,6 +170,14 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
             sessionId: data.session_id ?? null,
             startTimestamp: data.start_timestamp ?? null, // Unix ms
           });
+
+          if (!data.active) {
+            // Clean slate when experiment terminates
+            setChartData([]);
+            setLiveData(null);
+            setEventLogs([]);
+          }
+
           const logMsg = data.active
             ? `Session started: ${data.session_id}`
             : 'Session stopped.';

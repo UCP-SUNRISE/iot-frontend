@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ExperimentDetailsDialog } from "./ExperimentDetailsDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,6 +59,7 @@ export function ExperimentHistory() {
   const { dbQueryResponse, queryDb, isConnected } = useMqtt();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
 
   // Watch for incoming db/response and hydrate local state
   useEffect(() => {
@@ -81,7 +83,7 @@ export function ExperimentHistory() {
   };
 
   const handleViewDetails = (sessionId: string) => {
-    toast.info("Navigation pending", { description: `Will navigate to details for ${sessionId}` });
+    setSelectedSession(sessionId);
   };
 
   const handleExport = (sessionId: string) => {
@@ -193,6 +195,12 @@ export function ExperimentHistory() {
           </div>
         )}
       </CardContent>
+
+      <ExperimentDetailsDialog
+        sessionId={selectedSession}
+        isOpen={!!selectedSession}
+        onOpenChange={(open) => !open && setSelectedSession(null)}
+      />
     </Card>
   );
 }
