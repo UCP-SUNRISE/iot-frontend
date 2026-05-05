@@ -3,18 +3,16 @@
 import { useEffect } from "react";
 import { useMqtt } from "@/contexts/MqttContext";
 import { withPageAuthRequired, useUser } from "@auth0/nextjs-auth0/client";
-import { SystemHealth } from "@/components/SystemHealth";
-import { CoreReadings } from "@/components/CoreReadings";
 import { SensorCube3D } from "@/components/SensorCube3D";
 import { ExperimentControls } from "@/components/ExperimentControls";
-import { ExperimentLiveChart } from "@/components/ExperimentLiveChart";
+import { LiveThermalTrend } from "@/components/LiveThermalTrend";
 import { ExperimentTimer } from "@/components/ExperimentTimer";
 import { LiveLogs } from "@/components/LiveLogs";
 import { ExperimentHistory } from "@/components/ExperimentHistory";
 
 export default withPageAuthRequired(function DashboardPage() {
   const { isLoading } = useUser();
-  const { isConnected, connectionStatus, liveData, registeredDevices, experimentStatus, subscribe, unsubscribe } = useMqtt();
+  const { isConnected, connectionStatus, liveData, subscribe, unsubscribe } = useMqtt();
 
   useEffect(() => {
     if (isConnected) {
@@ -36,67 +34,48 @@ export default withPageAuthRequired(function DashboardPage() {
 
   return (
     <main className="container mx-auto p-4 md:p-8 space-y-8 flex-grow flex flex-col">
-      <header className="mb-4">
-        <h1 className="text-3xl font-bold tracking-tight">SUNRISE Solar Oven</h1>
-        <p className="text-muted-foreground">Real-time Scientific Telemetry</p>
-      </header>
-
-      {/* Top Section: Health, Core Stats & Experiment Control */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 h-full">
-          <SystemHealth
-            isConnected={isConnected}
-            registeredDevices={registeredDevices}
-          />
-        </div>
-        <div className="lg:col-span-2 h-full">
-          <CoreReadings
-            waterTemp={liveData?.core?.water_temp ?? 0}
-            foodTemp={liveData?.core?.food_temp ?? 0}
-          />
-        </div>
-      </div>
-
-      {/* Experiment Control & Live Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Controls & Logs */}
+        <div className="lg:col-span-1 space-y-6">
           <ExperimentControls />
           <ExperimentTimer />
           <LiveLogs />
         </div>
-        <div className="lg:col-span-2 h-full min-h-[400px]">
-          <ExperimentLiveChart />
+
+        {/* Right Column: Live Trend & 3D Cubes */}
+        <div className="lg:col-span-2 space-y-8">
+          <LiveThermalTrend />
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 min-h-[300px]">
+            <SensorCube3D
+              title="Temperature (°C)"
+              sensorData={liveData?.cube_th ?? []}
+              dataKey="t"
+              colorScale="Hot"
+              unit="°C"
+            />
+            <SensorCube3D
+              title="Humidity (%)"
+              sensorData={liveData?.cube_th ?? []}
+              dataKey="h"
+              colorScale="Blues"
+              unit="%"
+            />
+            <SensorCube3D
+              title="Light (Lux)"
+              sensorData={liveData?.cube_light ?? []}
+              dataKey="lux"
+              colorScale="Viridis"
+              unit="LUX"
+            />
+          </div>
         </div>
       </div>
 
-
-
-      {/* Bottom Section: 3D Visualization Cubes */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">
-        <SensorCube3D
-          title="Temperature Matrix (°C)"
-          sensorData={liveData?.cube_th ?? []}
-          dataKey="t"
-          colorScale="Hot"
-          unit="°C"
-        />
-        <SensorCube3D
-          title="Humidity Matrix (%)"
-          sensorData={liveData?.cube_th ?? []}
-          dataKey="h"
-          colorScale="Blues"
-          unit="%"
-        />
-        <SensorCube3D
-          title="Light Intensity (Lux)"
-          sensorData={liveData?.cube_light ?? []}
-          dataKey="lux"
-          colorScale="Viridis"
-          unit="LUX"
-        />
+      {/* History Table */}
+      <div className="pt-8 border-t">
+        <ExperimentHistory />
       </div>
-      {/* History */}
-      <ExperimentHistory />
     </main>
   );
 });

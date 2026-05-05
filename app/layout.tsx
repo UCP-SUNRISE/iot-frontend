@@ -6,6 +6,7 @@ import { MqttProvider } from "@/contexts/MqttContext";
 import { Auth0Provider } from "@auth0/nextjs-auth0/client";
 import { Toaster } from "@/components/ui/sonner";
 import { ConfirmDialogProvider } from "@/contexts/ConfirmDialogContext";
+import { TopNav } from "@/components/TopNav";
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -39,6 +40,7 @@ export default function RootLayout({
         <Auth0Provider>
           <MqttProvider>
             <ConfirmDialogProvider>
+              <TopNav />
               {children}
             </ConfirmDialogProvider>
           </MqttProvider>
