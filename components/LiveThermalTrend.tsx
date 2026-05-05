@@ -47,7 +47,7 @@ export function LiveThermalTrend() {
               }
             </CardDescription>
           </div>
-          
+
           {/* Real-time Metrics Injection */}
           <div className="flex gap-8">
             <div className="flex flex-col items-end">

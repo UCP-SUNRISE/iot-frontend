@@ -6,9 +6,8 @@ import { withPageAuthRequired, useUser } from "@auth0/nextjs-auth0/client";
 import { SensorCube3D } from "@/components/SensorCube3D";
 import { ExperimentControls } from "@/components/ExperimentControls";
 import { LiveThermalTrend } from "@/components/LiveThermalTrend";
-import { ExperimentTimer } from "@/components/ExperimentTimer";
 import { LiveLogs } from "@/components/LiveLogs";
-import { ExperimentHistory } from "@/components/ExperimentHistory";
+
 
 export default withPageAuthRequired(function DashboardPage() {
   const { isLoading } = useUser();
@@ -34,19 +33,17 @@ export default withPageAuthRequired(function DashboardPage() {
 
   return (
     <main className="container mx-auto p-4 md:p-8 space-y-8 flex-grow flex flex-col">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
         {/* Left Column: Controls & Logs */}
         <div className="lg:col-span-1 space-y-6">
           <ExperimentControls />
-          <ExperimentTimer />
           <LiveLogs />
         </div>
 
         {/* Right Column: Live Trend & 3D Cubes */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-3 flex flex-col gap-8">
           <LiveThermalTrend />
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 min-h-[300px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <SensorCube3D
               title="Temperature (°C)"
               sensorData={liveData?.cube_th ?? []}
@@ -72,10 +69,6 @@ export default withPageAuthRequired(function DashboardPage() {
         </div>
       </div>
 
-      {/* History Table */}
-      <div className="pt-8 border-t">
-        <ExperimentHistory />
-      </div>
     </main>
   );
 });

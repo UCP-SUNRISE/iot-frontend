@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useMqtt } from "@/contexts/MqttContext";
 import { PreExperimentDialog } from "./PreExperimentDialog";
+import { useExperimentTimer } from "@/hooks/useExperimentTimer";
 
 export function ExperimentControls() {
   const { user, isLoading } = useUser();
   const { isConnected, experimentStatus, sendCommand, connectionStatus, registeredDevices } = useMqtt();
   const [isPending, startTransition] = useTransition();
+  const elapsedTime = useExperimentTimer(experimentStatus.active, experimentStatus.startTimestamp);
 
   const handleStartTransition = () => {
     startTransition(() => {
@@ -66,9 +68,7 @@ export function ExperimentControls() {
       <CardHeader className="flex flex-row items-start justify-between">
         <div>
           <CardTitle>Experiment Control</CardTitle>
-          <CardDescription className="mt-1">
-            Signed in as <span className="font-medium text-foreground">{user.email}</span>
-          </CardDescription>
+
         </div>
         <Badge
           variant={experimentStatus.active ? "default" : "secondary"}
@@ -79,6 +79,24 @@ export function ExperimentControls() {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        <div className="flex flex-col items-center justify-center py-2">
+          {experimentStatus.active ? (
+            <div className="flex items-center space-x-3 mb-4">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+              <div className="text-4xl font-mono tabular-nums font-bold tracking-tight text-center">
+                {elapsedTime}
+              </div>
+            </div>
+          ) : (
+            <div className="text-4xl font-mono tabular-nums font-bold tracking-tight text-center text-muted-foreground/30 mb-4">
+              00:00:00
+            </div>
+          )}
+        </div>
+
         {experimentStatus.active ? (
           <>
             <div className="rounded-md bg-muted p-3 text-sm">
@@ -112,6 +130,12 @@ export function ExperimentControls() {
         {!isConnected && (
           <p className="text-xs text-destructive">
             Disconnected from broker — controls unavailable. {connectionStatus === "reconnecting" && "(Reconnecting to broker...)"}
+          </p>
+        )}
+
+        {experimentStatus.sessionId && (
+          <p className="mt-2 text-xs text-muted-foreground font-mono truncate">
+            {experimentStatus.sessionId}
           </p>
         )}
       </CardContent>

@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,7 @@ import {
 
 export function TopNav() {
   const { user, isLoading } = useUser();
+  const pathname = usePathname();
   const { isConnected, registeredDevices } = useMqtt();
 
   const onlineDevices = registeredDevices.filter(d => d.last_status === "online").length;
@@ -30,10 +32,26 @@ export function TopNav() {
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container px-6 flex h-14 items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
-            SUNRISE
-          </h1>
+        <div className="flex items-center gap-8">
+          <Link href="/" className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
+              SUNRISE
+            </h1>
+          </Link>
+          <div className="hidden md:flex items-center gap-6">
+            <Link
+              href="/"
+              className={`text-sm font-medium transition-colors hover:text-foreground ${pathname === "/" ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              Dashboard
+            </Link>
+            <Link
+              href="/history"
+              className={`text-sm font-medium transition-colors hover:text-foreground ${pathname === "/history" ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              History
+            </Link>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
