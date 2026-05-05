@@ -137,11 +137,17 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
 
     client.on("offline", () => {
       setConnectionStatus('offline');
+      setRegisteredDevices([]);
+      setChartData([]);
+      setLiveData(null);
       resetWatchdog();
     });
 
     client.on("close", () => {
       setConnectionStatus((prev) => prev === 'error' ? prev : 'offline');
+      setRegisteredDevices([]);
+      setChartData([]);
+      setLiveData(null);
       resetWatchdog();
     });
 
