@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMqtt } from "@/contexts/MqttContext";
+import { useConfirm } from "@/contexts/ConfirmDialogContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,7 @@ function formatDuration(start: string | null, end: string | null): string {
 
 export function ExperimentHistory() {
   const { dbQueryResponse, queryDb, isConnected } = useMqtt();
+  const { confirm } = useConfirm();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
@@ -92,7 +94,16 @@ export function ExperimentHistory() {
   };
 
   const handleDelete = (sessionId: string) => {
-    toast.error("Delete requested", { description: `Will request deletion of ${sessionId}` });
+    confirm({
+      title: "Delete Experiment",
+      description: `Are you absolutely sure you want to delete experiment ${sessionId}? This will erase all telemetry permanently.`,
+      confirmText: "Delete",
+      isDestructive: true,
+      onConfirm: () => {
+        queryDb("delete_session", { session_id: sessionId });
+        toast.loading(`Deleting ${sessionId}...`, { id: `delete-${sessionId}` });
+      }
+    });
   };
 
   return (

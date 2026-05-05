@@ -212,6 +212,16 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
           const data = JSON.parse(message.toString());
           if (data.response_to === 'get_live_chart') {
             setChartData(data.data || []);
+          } else if (data.response_to === 'delete_session') {
+            if (data.success) {
+              toast.success(`Session ${data.session_id} deleted successfully.`, { id: `delete-${data.session_id}` });
+              // Immediately re-fetch the sessions to update the UI table
+              if (clientRef.current && clientRef.current.connected) {
+                clientRef.current.publish('sunrise/db/request', JSON.stringify({ query: "get_sessions" }));
+              }
+            } else {
+              toast.error(`Failed to delete session ${data.session_id}.`, { id: `delete-${data.session_id}` });
+            }
           } else {
             setDbQueryResponse(Array.isArray(data) ? data : [data]);
           }
