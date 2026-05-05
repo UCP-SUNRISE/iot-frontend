@@ -35,30 +35,25 @@ export function LiveThermalTrend() {
   return (
     <Card className="w-full h-full min-h-[500px] flex flex-col overflow-hidden">
       <CardHeader className="pb-0 pt-6 px-6">
-        <div className="flex justify-between items-start">
-          <div>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          <div className="w-full text-center md:w-auto md:text-left">
             <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-              Live Thermal Trend
+              Live Thermal Data
             </CardTitle>
-            <CardDescription>
-              {experimentStatus.active
-                ? `Tracking Session: ${experimentStatus.sessionId}`
-                : `Final Result: ${experimentStatus.sessionId ?? 'Unknown Session'}`
-              }
-            </CardDescription>
+
           </div>
 
           {/* Real-time Metrics Injection */}
-          <div className="flex gap-8">
-            <div className="flex flex-col items-end">
+          <div className="flex flex-row items-center gap-6 justify-center w-full md:w-auto">
+            <div className="flex flex-col items-start md:items-end">
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Water</span>
-              <span className="text-4xl font-bold text-blue-500 tabular-nums">
+              <span className="text-2xl md:text-4xl font-bold text-blue-500 tabular-nums">
                 {liveData?.core?.water_temp != null ? `${liveData.core.water_temp.toFixed(1)}°C` : "--.-°C"}
               </span>
             </div>
-            <div className="flex flex-col items-end">
+            <div className="flex flex-col items-start md:items-end">
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Food</span>
-              <span className="text-4xl font-bold text-orange-500 tabular-nums">
+              <span className="text-2xl md:text-4xl font-bold text-orange-500 tabular-nums">
                 {liveData?.core?.food_temp != null ? `${liveData.core.food_temp.toFixed(1)}°C` : "--.-°C"}
               </span>
             </div>

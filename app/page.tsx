@@ -41,32 +41,32 @@ export default withPageAuthRequired(function DashboardPage() {
         </div>
 
         {/* Right Column: Live Trend & 3D Cubes */}
-        <div className="lg:col-span-3 flex flex-col gap-8">
+        <div className="lg:col-span-3 flex flex-col gap-8 h-full">
           <LiveThermalTrend />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <SensorCube3D
-              title="Temperature (°C)"
-              sensorData={liveData?.cube_th ?? []}
-              dataKey="t"
-              colorScale="Hot"
-              unit="°C"
-            />
-            <SensorCube3D
-              title="Humidity (%)"
-              sensorData={liveData?.cube_th ?? []}
-              dataKey="h"
-              colorScale="Blues"
-              unit="%"
-            />
-            <SensorCube3D
-              title="Light (Lux)"
-              sensorData={liveData?.cube_light ?? []}
-              dataKey="lux"
-              colorScale="Viridis"
-              unit="LUX"
-            />
-          </div>
         </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <SensorCube3D
+          title="Temperature (°C)"
+          sensorData={liveData?.cube_th ?? []}
+          dataKey="t"
+          colorScale="Hot"
+          unit="°C"
+        />
+        <SensorCube3D
+          title="Humidity (%)"
+          sensorData={liveData?.cube_th ?? []}
+          dataKey="h"
+          colorScale="Blues"
+          unit="%"
+        />
+        <SensorCube3D
+          title="Light (Lux)"
+          sensorData={liveData?.cube_light ?? []}
+          dataKey="lux"
+          colorScale="Viridis"
+          unit="LUX"
+        />
       </div>
 
     </main>

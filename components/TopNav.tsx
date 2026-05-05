@@ -12,7 +12,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Server, RadioTower } from "lucide-react";
+import { Server, RadioTower, Menu } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useMqtt } from "@/contexts/MqttContext";
 import {
   Dialog,
@@ -30,9 +37,38 @@ export function TopNav() {
   const onlineDevices = registeredDevices.filter(d => d.last_status === "online").length;
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container px-6 flex h-14 items-center justify-between">
-        <div className="flex items-center gap-8">
+    <nav className="sticky top-0 z-50 w-full flex justify-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container px-4 py-3 md:px-6 md:py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4 md:gap-8">
+          <Sheet>
+            <SheetTrigger asChild>
+              <button className="md:hidden p-2 -ml-2 hover:bg-accent rounded-md">
+                <Menu className="h-5 w-5" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[280px] sm:w-[350px]">
+              <SheetHeader>
+                <SheetTitle className="text-left bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
+                  SUNRISE
+                </SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col gap-4 mt-8">
+                <Link
+                  href="/"
+                  className={`text-lg font-medium transition-colors hover:text-foreground ${pathname === "/" ? "text-foreground" : "text-muted-foreground"}`}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/history"
+                  className={`text-lg font-medium transition-colors hover:text-foreground ${pathname === "/history" ? "text-foreground" : "text-muted-foreground"}`}
+                >
+                  History
+                </Link>
+              </nav>
+            </SheetContent>
+          </Sheet>
+
           <Link href="/" className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
               SUNRISE
@@ -56,16 +92,17 @@ export function TopNav() {
 
         <div className="flex items-center gap-4">
           {/* Health Icons */}
-          <div className="hidden md:flex items-center gap-4 text-muted-foreground mr-2">
+          <div className="flex items-center gap-4 text-muted-foreground mr-2">
             <div className="flex items-center gap-1.5" title={isConnected ? "Edge Server Online" : "Edge Server Offline"}>
               <Server className={`h-4 w-4 ${isConnected ? "text-green-500" : "text-red-500"}`} />
-              <span className="text-xs font-medium">Server</span>
+              <span className="text-xs font-medium hidden sm:inline">Server</span>
             </div>
             <Dialog>
               <DialogTrigger asChild>
                 <button className="flex items-center gap-1.5 hover:text-foreground transition-colors" title={`${onlineDevices} Device(s) Online`}>
                   <RadioTower className={`h-4 w-4 ${onlineDevices > 0 ? "text-green-500" : "text-muted-foreground"}`} />
-                  <span className="text-xs font-medium">Devices ({onlineDevices})</span>
+                  <span className="text-xs font-medium hidden sm:inline">Devices ({onlineDevices})</span>
+                  <span className="text-xs font-medium sm:hidden">({onlineDevices})</span>
                 </button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
