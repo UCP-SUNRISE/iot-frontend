@@ -101,9 +101,19 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       }, 5000);
     };
 
-    const brokerUrl = process.env.NEXT_PUBLIC_MQTT_URL || "ws://localhost:9001";
+    const host = process.env.NEXT_PUBLIC_MQTT_BROKER_URL || "localhost";
+    const isRemote = host.includes("localto.net") || host.includes("localtonet.com");
+
+    const protocol = isRemote ? "wss" : "ws";
+    const port = isRemote ? 443 : 9001;
+
+    const connectUrl = `${protocol}://${host}:${port}`;
+
     setConnectionStatus('connecting');
-    const client = mqtt.connect(brokerUrl);
+    const client = mqtt.connect(connectUrl, {
+      reconnectPeriod: 1000,
+      connectTimeout: 30000,
+    });
     clientRef.current = client;
     startWatchdog();
 
