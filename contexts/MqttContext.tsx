@@ -15,6 +15,7 @@ export interface MqttPayload {
     water_temp: number;
     food_temp: number;
     pressure: number;
+    solar_radiation?: number;
   };
   cube_th: TempHumidityNode[];
   cube_light: LightNode[];

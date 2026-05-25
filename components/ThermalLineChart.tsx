@@ -9,6 +9,7 @@ interface ThermalPoint {
   time: string;
   water: number | null;
   food: number | null;
+  solar_radiation?: number | null;
 }
 
 interface ThermalLineChartProps {
@@ -19,6 +20,7 @@ export function ThermalLineChart({ data }: ThermalLineChartProps) {
   const times = data.map(d => d.time);
   const waterTemps = data.map(d => d.water);
   const foodTemps = data.map(d => d.food);
+  const solarTemps = data.map(d => d.solar_radiation ?? null);
 
   return (
     <div className="w-full h-full min-h-[300px]">
@@ -41,12 +43,22 @@ export function ThermalLineChart({ data }: ThermalLineChartProps) {
             name: 'Food Temp',
             line: { color: '#f97316', width: 3 },
             marker: { size: 6 }
+          },
+          {
+            x: times,
+            y: solarTemps,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: 'Solar Radiation',
+            yaxis: 'y2',
+            line: { color: '#eab308', width: 3 }, // yellow-500
+            marker: { size: 6 }
           }
         ]}
         layout={{
           uirevision: 'true',
           autosize: true,
-          margin: { l: 40, r: 20, t: 30, b: 60, pad: 0 },
+          margin: { l: 40, r: 45, t: 30, b: 60, pad: 0 },
           paper_bgcolor: 'transparent',
           plot_bgcolor: 'transparent',
           xaxis: { 
@@ -60,6 +72,13 @@ export function ThermalLineChart({ data }: ThermalLineChartProps) {
             title: { text: 'Temp (°C)', font: { size: 10 } },
             showgrid: true,
             gridcolor: 'rgba(255,255,255,0.05)',
+            tickfont: { size: 10 }
+          },
+          yaxis2: {
+            title: { text: 'Solar (W/m²)', font: { size: 10 } },
+            overlaying: 'y',
+            side: 'right',
+            showgrid: false,
             tickfont: { size: 10 }
           },
           legend: {
