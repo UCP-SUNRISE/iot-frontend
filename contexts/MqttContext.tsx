@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import mqtt, { MqttClient } from "mqtt";
 import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
 import { TempHumidityNode, LightNode, DeviceRecord } from "@/types/telemetry";
 
 // 1. The payload exactly as it comes from the Python ESP32 Simulator
@@ -50,6 +51,7 @@ interface MqttContextType {
   unsubscribe: (topic: string) => void;
   sendCommand: (payload: object) => void;
   queryDb: (query: string, params?: object) => void;
+  makeRpcCall: <T = unknown>(requestTopicBase: string, responseTopicBase: string, payload: unknown) => Promise<T>;
 }
 
 const MqttContext = createContext<MqttContextType>({
@@ -66,6 +68,7 @@ const MqttContext = createContext<MqttContextType>({
   unsubscribe: () => { },
   sendCommand: () => { },
   queryDb: () => { },
+  makeRpcCall: () => Promise.reject(new Error("MQTT client not connected")),
 });
 
 export function MqttProvider({ children }: { children: React.ReactNode }) {
@@ -320,8 +323,62 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const makeRpcCall = useCallback(<T = unknown,>(
+    requestTopicBase: string,
+    responseTopicBase: string,
+    payload: unknown
+  ): Promise<T> => {
+    return new Promise((resolve, reject) => {
+      const client = clientRef.current;
+      if (!client || !client.connected) {
+        return reject(new Error('MQTT client not connected'));
+      }
+
+      const requestUuid = uuidv4();
+      const responseTopic = `${responseTopicBase}/${requestUuid}`;
+      const requestTopic = `${requestTopicBase}/${requestUuid}`;
+
+      let timeoutId: NodeJS.Timeout;
+
+      const messageHandler = (topic: string, message: Buffer) => {
+        if (topic === responseTopic) {
+          clearTimeout(timeoutId);
+          client.unsubscribe(responseTopic);
+          client.removeListener('message', messageHandler);
+
+          try {
+            const data = JSON.parse(message.toString());
+            resolve(data);
+          } catch (err) {
+            reject(new Error('Failed to parse MQTT response'));
+          }
+        }
+      };
+
+      // Subscribe to the response topic
+      client.subscribe(responseTopic, (err) => {
+        if (err) {
+          return reject(err);
+        }
+
+        // Add the listener
+        client.on('message', messageHandler);
+
+        // Publish the request
+        client.publish(requestTopic, JSON.stringify(payload));
+
+        // Set timeout trap (10 seconds)
+        timeoutId = setTimeout(() => {
+          client.unsubscribe(responseTopic);
+          client.removeListener('message', messageHandler);
+          reject(new Error('Timeout'));
+        }, 10000);
+      });
+    });
+  }, []);
+
   return (
-    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, chartData, publish, subscribe, unsubscribe, sendCommand, queryDb }}>
+    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, chartData, publish, subscribe, unsubscribe, sendCommand, queryDb, makeRpcCall }}>
       {children}
     </MqttContext.Provider>
   );

@@ -65,6 +65,12 @@ export function TopNav() {
                 >
                   History
                 </Link>
+                <Link
+                  href="/predictions"
+                  className={`text-lg font-medium transition-colors hover:text-foreground ${pathname === "/predictions" ? "text-foreground" : "text-muted-foreground"}`}
+                >
+                  Predictions
+                </Link>
               </nav>
             </SheetContent>
           </Sheet>
@@ -86,6 +92,12 @@ export function TopNav() {
               className={`text-sm font-medium transition-colors hover:text-foreground ${pathname === "/history" ? "text-foreground" : "text-muted-foreground"}`}
             >
               History
+            </Link>
+            <Link
+              href="/predictions"
+              className={`text-sm font-medium transition-colors hover:text-foreground ${pathname === "/predictions" ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              Predictions
             </Link>
           </div>
         </div>
