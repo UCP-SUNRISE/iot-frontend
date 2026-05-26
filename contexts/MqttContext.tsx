@@ -111,7 +111,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     const protocol = isRemote ? "wss" : "ws";
     const port = isRemote ? 443 : 9001;
 
-    const connectUrl = `${protocol}://${host}:${port}`;
+    const connectUrl = process.env.NEXT_PUBLIC_MQTT_URL || `${protocol}://${host}:${port}`;
 
     setConnectionStatus('connecting');
     const client = mqtt.connect(connectUrl, {
