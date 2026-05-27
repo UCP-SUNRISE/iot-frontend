@@ -38,7 +38,7 @@ export function SessionReviewCard({ sessionId }: SessionReviewCardProps) {
 
         if (mounted) {
           // Fallback logic in case data is nested inside a property
-          const dataArray = Array.isArray(response) ? response : (response.data || []);
+          const dataArray = Array.isArray(response) ? response : ((response as any)?.data || []);
           setSessionData(dataArray as DataPoint[]);
           setIsLoading(false);
         }
@@ -130,7 +130,7 @@ export function SessionReviewCard({ sessionId }: SessionReviewCardProps) {
                     boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)'
                   }}
                   labelFormatter={(val) => `Time: ${val}s`}
-                  formatter={(val: number) => [`${val.toFixed(1)}°C`, 'Water Temp']}
+                  formatter={(val: any) => [`${Number(val).toFixed(1)}°C`, 'Water Temp']}
                 />
                 <Line
                   type="monotone"
