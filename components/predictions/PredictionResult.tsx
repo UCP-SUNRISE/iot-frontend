@@ -21,7 +21,7 @@ export function PredictionResult({ predictedHardness, isPredicting }: Prediction
         <Loader2 className="w-8 h-8 text-primary animate-spin my-4" />
       ) : (
         <div className="text-4xl font-extrabold text-primary">
-          {typeof predictedHardness === 'number' ? predictedHardness.toFixed(2) : predictedHardness} <span className="text-xl text-muted-foreground font-medium">mg/L</span>
+          {typeof predictedHardness === 'number' ? predictedHardness.toFixed(2) : predictedHardness} <span className="text-xl text-muted-foreground font-medium">N</span>
         </div>
       )}
     </div>
