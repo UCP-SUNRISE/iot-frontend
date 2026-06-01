@@ -68,6 +68,9 @@ export function PredictionCurvesChart({
                 dx={-10}
               />
               <Tooltip 
+                trigger="click"
+                shared={false}
+                formatter={(value: any) => [`${Number(value).toFixed(2)}°C`]}
                 contentStyle={{ 
                   borderRadius: '12px', 
                   border: '1px solid var(--border)', 
