@@ -10,7 +10,7 @@ export function usePredictionsDashboard() {
   const [minStartTime, setMinStartTime] = useState<string>("00:00");
   const [hoveredCurveId, setHoveredCurveId] = useState<string | null>(null);
   const [selectedCurveId, setSelectedCurveId] = useState<string | null>(null);
-  const [predictedHardness, setPredictedHardness] = useState<number | null>(null);
+  const [predictedHardness, setPredictedHardness] = useState<{ hardness_20m: number, hardness_30m: number, hardness_40m: number } | null>(null);
   const [isForecasting, setIsForecasting] = useState(false);
   const [forecastData, setForecastData] = useState<{ environmental_forecast?: any[], time_windows?: any[] } | null>(null);
   const [isPredicting, setIsPredicting] = useState(false);
@@ -47,7 +47,11 @@ export function usePredictionsDashboard() {
         'sunrise/ml/predict/response',
         curve
       );
-      const hardnessValue = typeof response === 'number' ? response : (response?.predicted_hardness ?? response?.hardness);
+      const hardnessValue = response?.hardness_20m !== undefined ? {
+        hardness_20m: response.hardness_20m,
+        hardness_30m: response.hardness_30m,
+        hardness_40m: response.hardness_40m
+      } : null;
       setPredictedHardness(hardnessValue);
       toast.success('Prediction generated successfully');
     } catch (error: unknown) {

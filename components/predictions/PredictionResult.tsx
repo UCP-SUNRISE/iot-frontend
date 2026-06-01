@@ -2,7 +2,7 @@ import React from 'react';
 import { Loader2 } from 'lucide-react';
 
 interface PredictionResultProps {
-  predictedHardness: number | null;
+  predictedHardness: { hardness_20m: number; hardness_30m: number; hardness_40m: number } | null;
   isPredicting: boolean;
 }
 
@@ -19,11 +19,28 @@ export function PredictionResult({ predictedHardness, isPredicting }: Prediction
       </div>
       {isPredicting ? (
         <Loader2 className="w-8 h-8 text-primary animate-spin my-4" />
-      ) : (
-        <div className="text-4xl font-extrabold text-primary">
-          {typeof predictedHardness === 'number' ? predictedHardness.toFixed(2) : predictedHardness} <span className="text-xl text-muted-foreground font-medium">N</span>
+      ) : predictedHardness ? (
+        <div className="grid grid-cols-1 gap-4 w-full mt-4">
+          <div className="flex flex-col items-center p-4 bg-muted/50 rounded-md">
+            <span className="text-sm text-muted-foreground mb-1">20 mins</span>
+            <div className="text-2xl font-extrabold text-primary">
+              {predictedHardness.hardness_20m.toFixed(2)} <span className="text-base text-muted-foreground font-medium">N</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-center p-4 bg-muted/50 rounded-md">
+            <span className="text-sm text-muted-foreground mb-1">30 mins</span>
+            <div className="text-2xl font-extrabold text-primary">
+              {predictedHardness.hardness_30m.toFixed(2)} <span className="text-base text-muted-foreground font-medium">N</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-center p-4 bg-muted/50 rounded-md">
+            <span className="text-sm text-muted-foreground mb-1">40 mins</span>
+            <div className="text-2xl font-extrabold text-primary">
+              {predictedHardness.hardness_40m.toFixed(2)} <span className="text-base text-muted-foreground font-medium">N</span>
+            </div>
+          </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
