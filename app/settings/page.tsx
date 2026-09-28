@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useSettings, SpatialMetric } from "@/contexts/SettingsContext";
+import { SystemSettingsCard } from "@/components/settings/SystemSettingsCard";
 
 const SPATIAL_METRICS: { key: SpatialMetric; label: string; hint: string }[] = [
   { key: "temperature", label: "Temperature", hint: "SHT30 air temperature per cube node" },
@@ -45,12 +46,18 @@ export default withPageAuthRequired(function SettingsPage() {
 
   return (
     <main className="container mx-auto p-4 md:p-8 space-y-6 max-w-3xl">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-sm text-muted-foreground">Display preferences are saved in this browser.</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={resetSettings}>Reset to defaults</Button>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground">
+          Shared settings are stored on the Edge Server and apply to everyone. Display preferences only affect this browser.
+        </p>
+      </div>
+
+      <SystemSettingsCard />
+
+      <div className="flex items-end justify-between gap-4 pt-4">
+        <h2 className="text-lg font-semibold tracking-tight">Display (this browser)</h2>
+        <Button variant="outline" size="sm" onClick={resetSettings}>Reset display</Button>
       </div>
 
       <Card>

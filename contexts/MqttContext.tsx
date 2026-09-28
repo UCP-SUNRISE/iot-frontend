@@ -5,6 +5,7 @@ import mqtt, { MqttClient } from "mqtt";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { TempHumidityNode, LightNode, DeviceRecord } from "@/types/telemetry";
+import { SystemSettings, SystemSettingsChanges } from "@/types/settings";
 
 // 1. The payload exactly as it comes from the Python ESP32 Simulator
 export interface MqttPayload {
@@ -46,6 +47,10 @@ interface MqttContextType {
   eventLogs: EventLog[];
   dbQueryResponse: object[] | null;
   chartData: any[];
+  /** Edge Server settings; null until the retained message arrives. */
+  systemSettings: SystemSettings | null;
+  updateSystemSettings: (changes: SystemSettingsChanges) => void;
+  resetSystemSettings: () => void;
   publish: (topic: string, message: string) => void;
   subscribe: (topic: string) => void;
   unsubscribe: (topic: string) => void;
@@ -70,6 +75,9 @@ const MqttContext = createContext<MqttContextType>({
   eventLogs: [],
   dbQueryResponse: null,
   chartData: [],
+  systemSettings: null,
+  updateSystemSettings: () => { },
+  resetSystemSettings: () => { },
   publish: () => { },
   subscribe: () => { },
   unsubscribe: () => { },
@@ -87,6 +95,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   const [eventLogs, setEventLogs] = useState<EventLog[]>([]);
   const [dbQueryResponse, setDbQueryResponse] = useState<object[] | null>(null);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
 
   const appendLog = (message: string, type: EventLog['type'] = 'info') => {
     setEventLogs(prev => [{ time: new Date(), message, type }, ...prev].slice(0, 100));
@@ -139,6 +148,9 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       client.subscribe('sunrise/system/experiment_status', (err) => {
         if (err) console.error('Failed to subscribe to experiment_status', err);
       });
+      client.subscribe(['sunrise/system/settings', 'sunrise/system/settings/error'], (err) => {
+        if (err) console.error('Failed to subscribe to system settings', err);
+      });
       client.subscribe('sunrise/alerts/thermal', (err) => {
         if (err) console.error('Failed to subscribe to thermal alerts', err);
       });
@@ -189,6 +201,25 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (topic === 'sunrise/system/settings') {
+        try {
+          setSystemSettings(JSON.parse(message.toString()));
+        } catch (err) {
+          console.error('Failed to parse system settings payload', err);
+        }
+        return;
+      }
+
+      if (topic === 'sunrise/system/settings/error') {
+        try {
+          const { error } = JSON.parse(message.toString());
+          toast.error('Settings not saved', { description: error });
+        } catch (err) {
+          console.error('Failed to parse settings error payload', err);
+        }
+        return;
+      }
+
       if (topic === 'sunrise/system/experiment_status') {
         try {
           const data = JSON.parse(message.toString());
@@ -226,6 +257,9 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
             toast.error(alertMessage, { description, duration: 10000 });
           } else if (type === 'time') {
             toast.warning(alertMessage, { description, duration: Infinity });
+          } else if (type === 'sensor_limit') {
+            // Hardware protection — stays until dismissed
+            toast.error(alertMessage, { description: `Time: ${new Date(timestamp).toLocaleTimeString()}`, duration: Infinity });
           }
           appendLog(`[${type.toUpperCase()}] ${alertMessage} (${elapsed_formatted})`, 'alert');
         } catch (err) {
@@ -322,6 +356,24 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const publishSettingsRequest = useCallback((request: object) => {
+    if (clientRef.current && clientRef.current.connected) {
+      clientRef.current.publish('sunrise/system/settings/set', JSON.stringify(request));
+    } else {
+      toast.error('Settings not saved', { description: 'Not connected to the Edge Server.' });
+    }
+  }, []);
+
+  const updateSystemSettings = useCallback(
+    (changes: SystemSettingsChanges) => publishSettingsRequest({ changes }),
+    [publishSettingsRequest]
+  );
+
+  const resetSystemSettings = useCallback(
+    () => publishSettingsRequest({ reset: true }),
+    [publishSettingsRequest]
+  );
+
   const queryDb = useCallback((query: string, params: object = {}) => {
     if (clientRef.current && clientRef.current.connected) {
       clientRef.current.publish('sunrise/db/request', JSON.stringify({ query, ...params }));
@@ -391,7 +443,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, chartData, publish, subscribe, unsubscribe, sendCommand, queryDb, makeRpcCall }}>
+    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, chartData, systemSettings, updateSystemSettings, resetSystemSettings, publish, subscribe, unsubscribe, sendCommand, queryDb, makeRpcCall }}>
       {children}
     </MqttContext.Provider>
   );
