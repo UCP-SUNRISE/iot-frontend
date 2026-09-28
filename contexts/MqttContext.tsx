@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import mqtt, { MqttClient } from "mqtt";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
-import { TempHumidityNode, LightNode, DeviceRecord } from "@/types/telemetry";
+import { TempHumidityNode, LightNode, DeviceRecord, WeatherReading } from "@/types/telemetry";
 import { SystemSettings, SystemSettingsChanges } from "@/types/settings";
 
 // 1. The payload exactly as it comes from the Python ESP32 Simulator
@@ -42,6 +42,8 @@ interface MqttContextType {
   isConnected: boolean;
   connectionStatus: ConnectionStatus;
   liveData: MqttPayload | null;
+  /** Latest weather-station reading; null until a station publishes. */
+  weatherData: WeatherReading | null;
   registeredDevices: DeviceRecord[];
   experimentStatus: ExperimentStatus;
   eventLogs: EventLog[];
@@ -70,6 +72,7 @@ const MqttContext = createContext<MqttContextType>({
   isConnected: false,
   connectionStatus: 'idle',
   liveData: null,
+  weatherData: null,
   registeredDevices: [],
   experimentStatus: { active: false, sessionId: null, startTimestamp: null },
   eventLogs: [],
@@ -90,6 +93,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   // Split state: One for the UI health indicator, one for the rapidly changing charts
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [liveData, setLiveData] = useState<MqttPayload | null>(null);
+  const [weatherData, setWeatherData] = useState<WeatherReading | null>(null);
   const [registeredDevices, setRegisteredDevices] = useState<DeviceRecord[]>([]);
   const [experimentStatus, setExperimentStatus] = useState<ExperimentStatus>({ active: false, sessionId: null, startTimestamp: null });
   const [eventLogs, setEventLogs] = useState<EventLog[]>([]);
@@ -151,6 +155,9 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       client.subscribe(['sunrise/system/settings', 'sunrise/system/settings/error'], (err) => {
         if (err) console.error('Failed to subscribe to system settings', err);
       });
+      client.subscribe('sunrise/weather/+/live', (err) => {
+        if (err) console.error('Failed to subscribe to weather', err);
+      });
       client.subscribe('sunrise/alerts/thermal', (err) => {
         if (err) console.error('Failed to subscribe to thermal alerts', err);
       });
@@ -173,6 +180,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       setRegisteredDevices([]);
       setChartData([]);
       setLiveData(null);
+      setWeatherData(null);
       resetWatchdog();
     });
 
@@ -181,6 +189,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       setRegisteredDevices([]);
       setChartData([]);
       setLiveData(null);
+      setWeatherData(null);
       resetWatchdog();
     });
 
@@ -197,6 +206,16 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
           setRegisteredDevices(registry);
         } catch (err) {
           console.error('Failed to parse registry payload', err);
+        }
+        return;
+      }
+
+      // Must be handled before the generic oven "live" branch below, which matches any topic containing "live"
+      if (topic.startsWith('sunrise/weather/') && topic.endsWith('/live')) {
+        try {
+          setWeatherData(JSON.parse(message.toString()));
+        } catch (err) {
+          console.error('Failed to parse weather payload', err);
         }
         return;
       }
@@ -443,7 +462,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, chartData, systemSettings, updateSystemSettings, resetSystemSettings, publish, subscribe, unsubscribe, sendCommand, queryDb, makeRpcCall }}>
+    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, weatherData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, chartData, systemSettings, updateSystemSettings, resetSystemSettings, publish, subscribe, unsubscribe, sendCommand, queryDb, makeRpcCall }}>
       {children}
     </MqttContext.Provider>
   );

@@ -73,7 +73,8 @@ export function ExperimentDetailsDialog({ sessionId, isOpen, onOpenChange }: Exp
       time: new Date(t.timestamp).toLocaleTimeString([], { hour12: false }),
       water: t.water_temperature,
       food: t.food_temperature,
-      solar_radiation: t.solar_radiation
+      solar_radiation: t.solar_radiation,
+      air_temp: t.air_temp
     }));
   }, [sessionDetails]);
 

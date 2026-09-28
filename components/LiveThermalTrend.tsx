@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ThermalLineChart } from "./ThermalLineChart";
 
 export function LiveThermalTrend() {
-  const { chartData, experimentStatus, queryDb, isConnected, liveData } = useMqtt();
+  const { chartData, experimentStatus, queryDb, isConnected, liveData, weatherData } = useMqtt();
 
   // Hydrate chart on mount or when experiment becomes active
   useEffect(() => {
@@ -29,7 +29,8 @@ export function LiveThermalTrend() {
       time: timeStr,
       food: d.food_temp,
       water: d.water_temp,
-      solar_radiation: d.solar_radiation
+      solar_radiation: d.solar_radiation,
+      air_temp: d.air_temp
     };
   });
 
@@ -64,6 +65,15 @@ export function LiveThermalTrend() {
                 {liveData?.core?.solar_radiation != null ? `${liveData.core.solar_radiation.toFixed(1)} W/m²` : "--.- W/m²"}
               </span>
             </div>
+            <div className="flex flex-col items-start md:items-end" title={weatherData ? `Station ${weatherData.metadata.station_id}` : "No weather station reporting"}>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Ambient</span>
+              <span className="text-2xl md:text-4xl font-bold text-zinc-400 tabular-nums">
+                {weatherData?.air_temp != null ? `${weatherData.air_temp.toFixed(1)}°C` : "--.-°C"}
+              </span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {weatherData?.air_humidity != null ? `${weatherData.air_humidity.toFixed(0)}% RH` : "—"}
+              </span>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -80,7 +90,7 @@ export function LiveThermalTrend() {
           </div>
         ) : (
           <div className="absolute inset-0 p-6">
-            <ThermalLineChart data={history.map(h => ({ time: h.time, water: h.water, food: h.food, solar_radiation: h.solar_radiation }))} />
+            <ThermalLineChart data={history} />
           </div>
         )}
       </CardContent>

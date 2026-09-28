@@ -79,7 +79,7 @@ function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
   const isDirty = JSON.stringify(draft) !== JSON.stringify(initial);
   const hasInvalid = [
     limits.warn_fraction, limits.cooldown_minutes, limits.sht30_max_temp,
-    limits.bpw34_max_temp, draft.telemetry.poll_interval_seconds,
+    limits.bpw34_max_temp, draft.telemetry.poll_interval_seconds, draft.weather.max_age_seconds,
   ].some(v => !Number.isFinite(v));
 
   const setLimit = <K extends keyof SystemSettings["sensor_limits"]>(key: K, value: SystemSettings["sensor_limits"][K]) =>
@@ -165,6 +165,13 @@ function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
           value={draft.telemetry.poll_interval_seconds}
           onChange={v => setDraft(prev => ({ ...prev, telemetry: { poll_interval_seconds: v } }))}
           unit="s" min={5} max={3600}
+        />
+        <NumberRow
+          label="Weather reading max age"
+          hint="Older weather-station readings are not saved with telemetry"
+          value={draft.weather.max_age_seconds}
+          onChange={v => setDraft(prev => ({ ...prev, weather: { max_age_seconds: v } }))}
+          unit="s" min={10} max={3600}
         />
       </CardContent>
 

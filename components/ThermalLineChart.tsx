@@ -10,6 +10,8 @@ interface ThermalPoint {
   water: number | null;
   food: number | null;
   solar_radiation?: number | null;
+  /** Ambient air temperature from the weather station. */
+  air_temp?: number | null;
 }
 
 interface ThermalLineChartProps {
@@ -21,6 +23,18 @@ export function ThermalLineChart({ data }: ThermalLineChartProps) {
   const waterTemps = data.map(d => d.water);
   const foodTemps = data.map(d => d.food);
   const solarTemps = data.map(d => d.solar_radiation ?? null);
+  const ambientTemps = data.map(d => d.air_temp ?? null);
+  // Only draw the ambient trace for sessions that recorded weather data
+  const ambientTrace = ambientTemps.some(t => t != null)
+    ? [{
+      x: times,
+      y: ambientTemps,
+      type: 'scatter' as const,
+      mode: 'lines' as const,
+      name: 'Ambient Temp',
+      line: { color: '#a1a1aa', width: 2, dash: 'dash' as const },
+    }]
+    : [];
 
   return (
     <div className="w-full h-full min-h-[300px]">
@@ -53,7 +67,8 @@ export function ThermalLineChart({ data }: ThermalLineChartProps) {
             yaxis: 'y2',
             line: { color: '#eab308', width: 3 }, // yellow-500
             marker: { size: 6 }
-          }
+          },
+          ...ambientTrace,
         ]}
         layout={{
           uirevision: 'true',

@@ -14,6 +14,10 @@ export interface SystemSettings {
   telemetry: {
     poll_interval_seconds: number;
   };
+  weather: {
+    /** Weather readings older than this are not attached to telemetry rows. */
+    max_age_seconds: number;
+  };
 }
 
 /** Recursive partial used for settings updates. */

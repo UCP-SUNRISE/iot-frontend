@@ -23,6 +23,13 @@ export function exportSessionToExcel(sessionDetails: any, sessionId: string) {
     Device_ID: t.device_id,
     Water_Temp: t.water_temperature,
     Food_Temp: t.food_temperature,
+    Solar_Radiation: t.solar_radiation,
+    // Weather station (blank when no fresh reading was available)
+    Weather_Station: t.weather_station_id,
+    Air_Temp: t.air_temp,
+    Air_Humidity: t.air_humidity,
+    Station_Solar_Radiation: t.station_solar_radiation,
+    Wind_Speed: t.wind_speed,
   }));
 
   // 2. Thermal Matrix: Flattened spatial nodes for Temp and Humidity
