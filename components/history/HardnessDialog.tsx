@@ -44,19 +44,26 @@ function HardnessForm({ session, unit, onSave, onClose }: {
   onClose: () => void;
 }) {
   const [value, setValue] = useState(session.final_hardness?.toString() ?? "");
+  const [raw, setRaw] = useState(session.raw_hardness?.toString() ?? "");
   const [notes, setNotes] = useState(session.hardness_notes ?? "");
 
-  const parsed = Number(value);
-  const isValid = value.trim() !== "" && Number.isFinite(parsed) && parsed > 0;
+  const isPositive = (text: string) => text.trim() !== "" && Number.isFinite(Number(text)) && Number(text) > 0;
+  const isValid = isPositive(value);
+  // Raw hardness is optional here (only the hardness model needs it) but must be valid if given
+  const rawValid = raw.trim() === "" || isPositive(raw);
 
   const handleSave = () => {
-    if (!isValid) return;
-    onSave(session.session_id, { final_hardness: parsed, hardness_notes: notes.trim() || null });
+    if (!isValid || !rawValid) return;
+    onSave(session.session_id, {
+      final_hardness: Number(value),
+      raw_hardness: raw.trim() === "" ? null : Number(raw),
+      hardness_notes: notes.trim() || null,
+    });
     onClose();
   };
 
   const handleClear = () => {
-    onSave(session.session_id, { final_hardness: null, hardness_notes: null });
+    onSave(session.session_id, { final_hardness: null, raw_hardness: null, hardness_notes: null });
     onClose();
   };
 
@@ -96,6 +103,26 @@ function HardnessForm({ session, unit, onSave, onClose }: {
         </label>
 
         <label className="block space-y-1.5">
+          <span className="text-sm font-medium">Raw hardness <span className="text-muted-foreground font-normal">(uncooked chickpea lot)</span></span>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              value={raw}
+              onChange={e => setRaw(e.target.value)}
+              aria-invalid={!rawValid}
+              className="tabular-nums"
+            />
+            <span className="text-sm text-muted-foreground w-8">{unit}</span>
+          </div>
+          <span className={`text-xs ${rawValid ? "text-muted-foreground" : "text-destructive"}`}>
+            {rawValid ? "Required for training the hardness model." : "Enter a positive number or leave empty."}
+          </span>
+        </label>
+
+        <label className="block space-y-1.5">
           <span className="text-sm font-medium">Notes <span className="text-muted-foreground font-normal">(optional)</span></span>
           <textarea
             value={notes}
@@ -122,7 +149,7 @@ function HardnessForm({ session, unit, onSave, onClose }: {
           ) : <span />}
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={!isValid}>Save</Button>
+            <Button type="submit" disabled={!isValid || !rawValid}>Save</Button>
           </div>
         </DialogFooter>
       </form>

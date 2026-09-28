@@ -18,6 +18,8 @@ export interface SessionRow {
   start_time: string | null;
   end_time: string | null;
   final_hardness: number | null;
+  /** Hardness of the uncooked chickpea lot; an input of the hardness model. */
+  raw_hardness: number | null;
   hardness_notes: string | null;
   hardness_recorded_by: string | null;
   hardness_recorded_at: string | null;
@@ -30,5 +32,6 @@ export interface SessionRow {
 export interface SessionTrainingChanges {
   is_approved?: boolean;
   final_hardness?: number | null;
+  raw_hardness?: number | null;
   hardness_notes?: string | null;
 }

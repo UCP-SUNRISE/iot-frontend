@@ -186,7 +186,7 @@ function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
           <Badge variant="outline">Shared</Badge>
         </div>
         <CardDescription>
-          Rules for which sessions can be selected for model training. A session must be stopped, selected in History and have a final hardness recorded for the hardness model.
+          Rules for which sessions can be selected for model training. A session must be stopped, selected in History and have its final and raw hardness recorded for the hardness model.
         </CardDescription>
       </CardHeader>
       <CardContent className="divide-y">
@@ -201,6 +201,32 @@ function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
             aria-label="Require final hardness for the kinetics model"
           />
         </label>
+        <label className="flex items-center justify-between gap-4 py-3 cursor-pointer">
+          <div className="space-y-0.5">
+            <div className="text-sm font-medium">Include historical datasets</div>
+            <div className="text-xs text-muted-foreground">Train on eligible sessions plus the lab/Excel experiments each service ships with</div>
+          </div>
+          <Switch
+            checked={draft.training.include_baseline}
+            onCheckedChange={checked => setTraining("include_baseline", checked)}
+            aria-label="Include historical datasets"
+          />
+        </label>
+        <div className="flex items-center justify-between gap-4 py-3">
+          <div className="space-y-0.5">
+            <div className="text-sm font-medium">Solar radiation source</div>
+            <div className="text-xs text-muted-foreground">Irradiance used by the kinetics model; the other source fills gaps</div>
+          </div>
+          <Select value={draft.training.solar_source} onValueChange={v => setTraining("solar_source", v as "oven" | "station")}>
+            <SelectTrigger className="w-32" aria-label="Solar radiation source">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="oven">Oven sensor</SelectItem>
+              <SelectItem value="station">Weather station</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <NumberRow
           label="Minimum telemetry points"
           hint="Sessions with fewer persisted readings are excluded"

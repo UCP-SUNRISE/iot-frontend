@@ -223,7 +223,10 @@ export function ExperimentHistory() {
                         <button
                           className="group inline-flex items-center gap-1.5 text-sm tabular-nums hover:text-primary"
                           onClick={() => setHardnessSession(session)}
-                          title={session.hardness_notes ?? "Edit final hardness"}
+                          title={[
+                            session.raw_hardness != null ? `Raw: ${session.raw_hardness} ${hardnessUnit}` : "Raw hardness not recorded",
+                            session.hardness_notes,
+                          ].filter(Boolean).join("\n")}
                         >
                           {session.final_hardness} {hardnessUnit}
                           <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />

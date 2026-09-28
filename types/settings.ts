@@ -25,6 +25,10 @@ export interface SystemSettings {
     /** Fraction (0–1) of telemetry points that must carry weather data. */
     min_weather_coverage: number;
     hardness_unit: HardnessUnit;
+    /** Train on eligible sessions plus the historical Excel datasets. */
+    include_baseline: boolean;
+    /** Irradiance feature for the kinetics model. */
+    solar_source: "oven" | "station";
   };
 }
 
