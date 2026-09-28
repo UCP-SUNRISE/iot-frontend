@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { ThermalLineChart } from "./ThermalLineChart";
-import { SensorCube3D } from "./SensorCube3D";
+import { SpatialMappingPanel } from "./SpatialMappingPanel";
 import { toast } from "sonner";
 import { exportSessionToExcel } from "@/lib/exportUtils";
 
@@ -59,6 +59,13 @@ export function ExperimentDetailsDialog({ sessionId, isOpen, onOpenChange }: Exp
     if (!sessionDetails?.telemetry || sessionDetails.telemetry.length === 0) return null;
     return sessionDetails.telemetry[timeIndex];
   }, [sessionDetails, timeIndex]);
+
+  const sessionHasCubeData = useMemo(() => {
+    if (!sessionDetails?.telemetry) return false;
+    return sessionDetails.telemetry.some(
+      (t: { cube_th?: unknown[]; cube_light?: unknown[] }) => (t.cube_th?.length ?? 0) > 0 || (t.cube_light?.length ?? 0) > 0
+    );
+  }, [sessionDetails]);
 
   const lineChartData = useMemo(() => {
     if (!sessionDetails?.telemetry) return [];
@@ -108,33 +115,14 @@ export function ExperimentDetailsDialog({ sessionId, isOpen, onOpenChange }: Exp
                 </div>
               </div>
 
-              {/* Spatial Grid */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Spatial Data (Point {timeIndex + 1}/{sessionDetails.telemetry.length})</h3>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
-                  <SensorCube3D
-                    title="Point-in-Time Thermal"
-                    sensorData={(currentPoint?.cube_th ?? []) as TempHumidityNode[]}
-                    dataKey="t"
-                    colorScale="Hot"
-                    unit="°C"
-                  />
-                  <SensorCube3D
-                    title="Point-in-Time Humidity"
-                    sensorData={(currentPoint?.cube_th ?? []) as TempHumidityNode[]}
-                    dataKey="h"
-                    colorScale="Blues"
-                    unit="%"
-                  />
-                  <SensorCube3D
-                    title="Point-in-Time Light"
-                    sensorData={(currentPoint?.cube_light ?? []) as LightNode[]}
-                    dataKey="lux"
-                    colorScale="Viridis"
-                    unit="LUX"
-                  />
-                </div>
-              </div>
+              {/* Spatial Grid — only for sessions that recorded cube data */}
+              {sessionHasCubeData && (
+                <SpatialMappingPanel
+                  cubeTh={(currentPoint?.cube_th ?? []) as TempHumidityNode[]}
+                  cubeLight={(currentPoint?.cube_light ?? []) as LightNode[]}
+                  description={`Point-in-time snapshot ${timeIndex + 1}/${sessionDetails.telemetry.length} — use the scrubber below.`}
+                />
+              )}
             </>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">

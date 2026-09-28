@@ -29,6 +29,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+const NAV_LINKS = [
+  { href: "/", label: "Dashboard" },
+  { href: "/history", label: "History" },
+  { href: "/predictions", label: "Predictions" },
+  { href: "/settings", label: "Settings" },
+];
+
 export function TopNav() {
   const { user, isLoading } = useUser();
   const pathname = usePathname();
@@ -53,24 +60,15 @@ export function TopNav() {
                 </SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-4 mt-8">
-                <Link
-                  href="/"
-                  className={`text-lg font-medium transition-colors hover:text-foreground ${pathname === "/" ? "text-foreground" : "text-muted-foreground"}`}
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/history"
-                  className={`text-lg font-medium transition-colors hover:text-foreground ${pathname === "/history" ? "text-foreground" : "text-muted-foreground"}`}
-                >
-                  History
-                </Link>
-                <Link
-                  href="/predictions"
-                  className={`text-lg font-medium transition-colors hover:text-foreground ${pathname === "/predictions" ? "text-foreground" : "text-muted-foreground"}`}
-                >
-                  Predictions
-                </Link>
+                {NAV_LINKS.map(({ href, label }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`text-lg font-medium transition-colors hover:text-foreground ${pathname === href ? "text-foreground" : "text-muted-foreground"}`}
+                  >
+                    {label}
+                  </Link>
+                ))}
               </nav>
             </SheetContent>
           </Sheet>
@@ -81,24 +79,15 @@ export function TopNav() {
             </h1>
           </Link>
           <div className="hidden md:flex items-center gap-6">
-            <Link
-              href="/"
-              className={`text-sm font-medium transition-colors hover:text-foreground ${pathname === "/" ? "text-foreground" : "text-muted-foreground"}`}
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/history"
-              className={`text-sm font-medium transition-colors hover:text-foreground ${pathname === "/history" ? "text-foreground" : "text-muted-foreground"}`}
-            >
-              History
-            </Link>
-            <Link
-              href="/predictions"
-              className={`text-sm font-medium transition-colors hover:text-foreground ${pathname === "/predictions" ? "text-foreground" : "text-muted-foreground"}`}
-            >
-              Predictions
-            </Link>
+            {NAV_LINKS.map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`text-sm font-medium transition-colors hover:text-foreground ${pathname === href ? "text-foreground" : "text-muted-foreground"}`}
+              >
+                {label}
+              </Link>
+            ))}
           </div>
         </div>
 

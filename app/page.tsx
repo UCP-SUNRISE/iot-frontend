@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useMqtt } from "@/contexts/MqttContext";
 import { withPageAuthRequired, useUser } from "@auth0/nextjs-auth0/client";
-import { SensorCube3D } from "@/components/SensorCube3D";
+import { SpatialMappingPanel } from "@/components/SpatialMappingPanel";
 import { ExperimentControls } from "@/components/ExperimentControls";
 import { LiveThermalTrend } from "@/components/LiveThermalTrend";
 import { LiveLogs } from "@/components/LiveLogs";
@@ -45,29 +45,10 @@ export default withPageAuthRequired(function DashboardPage() {
           <LiveThermalTrend />
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <SensorCube3D
-          title="Temperature (°C)"
-          sensorData={liveData?.cube_th ?? []}
-          dataKey="t"
-          colorScale="Hot"
-          unit="°C"
-        />
-        <SensorCube3D
-          title="Humidity (%)"
-          sensorData={liveData?.cube_th ?? []}
-          dataKey="h"
-          colorScale="Blues"
-          unit="%"
-        />
-        <SensorCube3D
-          title="Light (Lux)"
-          sensorData={liveData?.cube_light ?? []}
-          dataKey="lux"
-          colorScale="Viridis"
-          unit="LUX"
-        />
-      </div>
+      <SpatialMappingPanel
+        cubeTh={liveData?.cube_th ?? []}
+        cubeLight={liveData?.cube_light ?? []}
+      />
 
     </main>
   );
