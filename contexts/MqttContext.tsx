@@ -51,8 +51,15 @@ interface MqttContextType {
   unsubscribe: (topic: string) => void;
   sendCommand: (payload: object) => void;
   queryDb: (query: string, params?: object) => void;
-  makeRpcCall: <T = unknown>(requestTopicBase: string, responseTopicBase: string, payload: unknown) => Promise<T>;
+  makeRpcCall: <T = unknown>(requestTopicBase: string, responseTopicBase: string, payload: unknown, options?: RpcOptions) => Promise<T>;
 }
+
+export interface RpcOptions {
+  /** How long to wait for the response before rejecting. Defaults to 10s. */
+  timeoutMs?: number;
+}
+
+const DEFAULT_RPC_TIMEOUT_MS = 10000;
 
 const MqttContext = createContext<MqttContextType>({
   isConnected: false,
@@ -326,7 +333,8 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   const makeRpcCall = useCallback(<T = unknown,>(
     requestTopicBase: string,
     responseTopicBase: string,
-    payload: unknown
+    payload: unknown,
+    { timeoutMs = DEFAULT_RPC_TIMEOUT_MS }: RpcOptions = {}
   ): Promise<T> => {
     return new Promise((resolve, reject) => {
       const client = clientRef.current;
@@ -346,12 +354,18 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
           client.unsubscribe(responseTopic);
           client.removeListener('message', messageHandler);
 
+          let data;
           try {
-            const data = JSON.parse(message.toString());
-            resolve(data);
-          } catch (err) {
-            reject(new Error('Failed to parse MQTT response'));
+            data = JSON.parse(message.toString());
+          } catch {
+            return reject(new Error('Failed to parse MQTT response'));
           }
+          // The Edge Server's ML bridge reports failures on the response topic
+          // as { error, status: "failed" } — surface them instead of resolving.
+          if (data?.status === 'failed') {
+            return reject(new Error(data.error || 'Request failed'));
+          }
+          resolve(data);
         }
       };
 
@@ -367,12 +381,11 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
         // Publish the request
         client.publish(requestTopic, JSON.stringify(payload));
 
-        // Set timeout trap (10 seconds)
         timeoutId = setTimeout(() => {
           client.unsubscribe(responseTopic);
           client.removeListener('message', messageHandler);
-          reject(new Error('Timeout'));
-        }, 10000);
+          reject(new Error(`No response after ${Math.round(timeoutMs / 1000)}s`));
+        }, timeoutMs);
       });
     });
   }, []);

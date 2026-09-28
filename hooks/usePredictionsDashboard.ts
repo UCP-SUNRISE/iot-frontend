@@ -2,8 +2,12 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useMqtt } from '@/contexts/MqttContext';
 import { toast } from 'sonner';
 
+// The forecast chain (Open-Meteo fetch + predictions for every cooking window)
+// can exceed the default RPC timeout, especially on the Raspberry Pi.
+const FORECAST_TIMEOUT_MS = 45000;
+
 export function usePredictionsDashboard() {
-  const { makeRpcCall } = useMqtt();
+  const { makeRpcCall, isConnected } = useMqtt();
 
   // Forecast state
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -22,7 +26,8 @@ export function usePredictionsDashboard() {
       const response = await makeRpcCall<any>(
         'sunrise/ml/forecast/request',
         'sunrise/ml/forecast/response',
-        { date: selectedDate }
+        { date: selectedDate },
+        { timeoutMs: FORECAST_TIMEOUT_MS }
       );
       setForecastData(response);
       setSelectedCurveId(null);
@@ -34,9 +39,11 @@ export function usePredictionsDashboard() {
     }
   }, [selectedDate, makeRpcCall]);
 
+  // Wait for the broker connection — opening /predictions directly would
+  // otherwise fire the request before MQTT connects and never retry it.
   useEffect(() => {
-    fetchForecast();
-  }, [fetchForecast]);
+    if (isConnected) fetchForecast();
+  }, [isConnected, fetchForecast]);
 
   const handleCurveSelect = async (curve: any) => {
     setSelectedCurveId(curve.id);
