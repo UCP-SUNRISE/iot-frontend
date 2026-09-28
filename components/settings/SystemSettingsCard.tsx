@@ -8,7 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useMqtt } from "@/contexts/MqttContext";
 import { useConfirm } from "@/contexts/ConfirmDialogContext";
-import { SystemSettings } from "@/types/settings";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SystemSettings, HARDNESS_UNITS, HardnessUnit } from "@/types/settings";
 
 /**
  * Settings stored on the Edge Server and shared by every client.
@@ -80,7 +81,11 @@ function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
   const hasInvalid = [
     limits.warn_fraction, limits.cooldown_minutes, limits.sht30_max_temp,
     limits.bpw34_max_temp, draft.telemetry.poll_interval_seconds, draft.weather.max_age_seconds,
+    draft.training.min_telemetry_points, draft.training.min_weather_coverage,
   ].some(v => !Number.isFinite(v));
+
+  const setTraining = <K extends keyof SystemSettings["training"]>(key: K, value: SystemSettings["training"][K]) =>
+    setDraft(prev => ({ ...prev, training: { ...prev.training, [key]: value } }));
 
   const setLimit = <K extends keyof SystemSettings["sensor_limits"]>(key: K, value: SystemSettings["sensor_limits"][K]) =>
     setDraft(prev => ({ ...prev, sensor_limits: { ...prev.sensor_limits, [key]: value } }));
@@ -88,7 +93,7 @@ function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
   const handleReset = () =>
     confirm({
       title: "Reset shared settings?",
-      description: "This restores the default sensor limits and polling interval for every user.",
+      description: "This restores the default sensor limits, telemetry, weather and training rules for every user.",
       confirmText: "Reset",
       isDestructive: true,
       onConfirm: resetSystemSettings,
@@ -173,6 +178,59 @@ function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
           onChange={v => setDraft(prev => ({ ...prev, weather: { max_age_seconds: v } }))}
           unit="s" min={10} max={3600}
         />
+      </CardContent>
+
+      <CardHeader className="pt-2">
+        <div className="flex items-center gap-2">
+          <CardTitle>Training Data</CardTitle>
+          <Badge variant="outline">Shared</Badge>
+        </div>
+        <CardDescription>
+          Rules for which sessions can be selected for model training. A session must be stopped, selected in History and have a final hardness recorded for the hardness model.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="divide-y">
+        <label className="flex items-center justify-between gap-4 py-3 cursor-pointer">
+          <div className="space-y-0.5">
+            <div className="text-sm font-medium">Require final hardness for the kinetics model</div>
+            <div className="text-xs text-muted-foreground">The kinetics model itself only needs temperature and weather data</div>
+          </div>
+          <Switch
+            checked={draft.training.kinetics_requires_hardness}
+            onCheckedChange={checked => setTraining("kinetics_requires_hardness", checked)}
+            aria-label="Require final hardness for the kinetics model"
+          />
+        </label>
+        <NumberRow
+          label="Minimum telemetry points"
+          hint="Sessions with fewer persisted readings are excluded"
+          value={draft.training.min_telemetry_points}
+          onChange={v => setTraining("min_telemetry_points", v)}
+          unit="pts" min={1} max={100000}
+        />
+        <NumberRow
+          label="Minimum weather coverage"
+          hint="Share of readings that must include ambient data (kinetics model)"
+          value={Math.round(draft.training.min_weather_coverage * 100)}
+          onChange={v => setTraining("min_weather_coverage", v / 100)}
+          unit="%" min={0} max={100}
+        />
+        <div className="flex items-center justify-between gap-4 py-3">
+          <div className="space-y-0.5">
+            <div className="text-sm font-medium">Hardness unit</div>
+            <div className="text-xs text-muted-foreground">Unit of the TPA hardness values entered in History</div>
+          </div>
+          <Select value={draft.training.hardness_unit} onValueChange={v => setTraining("hardness_unit", v as HardnessUnit)}>
+            <SelectTrigger className="w-24" aria-label="Hardness unit">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {HARDNESS_UNITS.map(unit => (
+                <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardContent>
 
       <CardFooter className="justify-between gap-2">

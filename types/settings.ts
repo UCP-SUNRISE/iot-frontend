@@ -18,7 +18,18 @@ export interface SystemSettings {
     /** Weather readings older than this are not attached to telemetry rows. */
     max_age_seconds: number;
   };
+  training: {
+    /** Hardness is always required for the hardness model; this extends it to kinetics. */
+    kinetics_requires_hardness: boolean;
+    min_telemetry_points: number;
+    /** Fraction (0–1) of telemetry points that must carry weather data. */
+    min_weather_coverage: number;
+    hardness_unit: HardnessUnit;
+  };
 }
+
+export const HARDNESS_UNITS = ["N", "g", "kgf"] as const;
+export type HardnessUnit = typeof HARDNESS_UNITS[number];
 
 /** Recursive partial used for settings updates. */
 export type SystemSettingsChanges = {

@@ -1,7 +1,9 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useUser } from "@auth0/nextjs-auth0/client";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +15,7 @@ export function ExperimentControls() {
   const { user, isLoading } = useUser();
   const { isConnected, experimentStatus, sendCommand, connectionStatus, registeredDevices } = useMqtt();
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const elapsedTime = useExperimentTimer(experimentStatus.active, experimentStatus.startTimestamp);
 
   const handleStartTransition = () => {
@@ -25,6 +28,12 @@ export function ExperimentControls() {
   const handleStop = () => {
     startTransition(() => {
       sendCommand({ action: "stop" });
+    });
+    // Hardness is measured in the lab later, so this is a reminder rather than a prompt
+    toast.info("Session stopped", {
+      description: "Once the final hardness has been measured, record it in History so the session can be used for training.",
+      duration: 10000,
+      action: { label: "History", onClick: () => router.push("/history") },
     });
   };
 

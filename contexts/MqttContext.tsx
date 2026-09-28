@@ -302,6 +302,16 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
             } else {
               toast.error(`Failed to delete session ${data.session_id}.`, { id: `delete-${data.session_id}` });
             }
+          } else if (data.response_to === 'update_session_training') {
+            if (data.success) {
+              toast.success('Training data updated.', { id: `training-${data.session_id}` });
+              // Re-fetch so the table shows the updated values and eligibility
+              if (clientRef.current && clientRef.current.connected) {
+                clientRef.current.publish('sunrise/db/request', JSON.stringify({ query: "get_sessions" }));
+              }
+            } else {
+              toast.error('Training data not saved', { id: `training-${data.session_id}`, description: data.error });
+            }
           } else {
             setDbQueryResponse(Array.isArray(data) ? data : [data]);
           }
