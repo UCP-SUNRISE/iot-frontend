@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { TempHumidityNode, LightNode, DeviceRecord, WeatherReading } from "@/types/telemetry";
 import { SystemSettings, SystemSettingsChanges } from "@/types/settings";
+import { TrainingJob } from "@/types/models";
+import { TrainingModel } from "@/types/session";
 
 // 1. The payload exactly as it comes from the Python ESP32 Simulator
 export interface MqttPayload {
@@ -53,6 +55,8 @@ interface MqttContextType {
   systemSettings: SystemSettings | null;
   updateSystemSettings: (changes: SystemSettingsChanges) => void;
   resetSystemSettings: () => void;
+  /** Latest training job per model type (retained, so available even after a page reload). */
+  trainingJobs: Partial<Record<TrainingModel, TrainingJob>>;
   publish: (topic: string, message: string) => void;
   subscribe: (topic: string) => void;
   unsubscribe: (topic: string) => void;
@@ -81,6 +85,7 @@ const MqttContext = createContext<MqttContextType>({
   systemSettings: null,
   updateSystemSettings: () => { },
   resetSystemSettings: () => { },
+  trainingJobs: {},
   publish: () => { },
   subscribe: () => { },
   unsubscribe: () => { },
@@ -100,6 +105,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   const [dbQueryResponse, setDbQueryResponse] = useState<object[] | null>(null);
   const [chartData, setChartData] = useState<any[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+  const [trainingJobs, setTrainingJobs] = useState<Partial<Record<TrainingModel, TrainingJob>>>({});
 
   const appendLog = (message: string, type: EventLog['type'] = 'info') => {
     setEventLogs(prev => [{ time: new Date(), message, type }, ...prev].slice(0, 100));
@@ -157,6 +163,9 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       });
       client.subscribe('sunrise/weather/+/live', (err) => {
         if (err) console.error('Failed to subscribe to weather', err);
+      });
+      client.subscribe('sunrise/ml/train/status/+', (err) => {
+        if (err) console.error('Failed to subscribe to training status', err);
       });
       client.subscribe('sunrise/alerts/thermal', (err) => {
         if (err) console.error('Failed to subscribe to thermal alerts', err);
@@ -216,6 +225,16 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
           setWeatherData(JSON.parse(message.toString()));
         } catch (err) {
           console.error('Failed to parse weather payload', err);
+        }
+        return;
+      }
+
+      if (topic.startsWith('sunrise/ml/train/status/')) {
+        try {
+          const job: TrainingJob = JSON.parse(message.toString());
+          setTrainingJobs(prev => ({ ...prev, [job.model]: job }));
+        } catch (err) {
+          console.error('Failed to parse training status payload', err);
         }
         return;
       }
@@ -472,7 +491,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, weatherData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, chartData, systemSettings, updateSystemSettings, resetSystemSettings, publish, subscribe, unsubscribe, sendCommand, queryDb, makeRpcCall }}>
+    <MqttContext.Provider value={{ isConnected, connectionStatus, liveData, weatherData, registeredDevices, experimentStatus, eventLogs, dbQueryResponse, chartData, systemSettings, updateSystemSettings, resetSystemSettings, trainingJobs, publish, subscribe, unsubscribe, sendCommand, queryDb, makeRpcCall }}>
       {children}
     </MqttContext.Provider>
   );

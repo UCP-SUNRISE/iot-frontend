@@ -30,6 +30,14 @@ export interface SystemSettings {
     /** Irradiance feature for the kinetics model. */
     solar_source: "oven" | "station";
   };
+  recommendations: {
+    /** Eligible sessions missing from the latest run before retraining is suggested. */
+    retrain_min_new_sessions: number;
+    /** Suggest retraining an older latest run as soon as any new eligible session exists. */
+    retrain_max_age_days: number;
+    /** Relative RMSE reduction (0–1) needed to suggest activating a different model. */
+    promote_min_improvement: number;
+  };
 }
 
 export const HARDNESS_UNITS = ["N", "g", "kgf"] as const;

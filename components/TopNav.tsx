@@ -33,6 +33,7 @@ const NAV_LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/history", label: "History" },
   { href: "/predictions", label: "Predictions" },
+  { href: "/models", label: "Models" },
   { href: "/settings", label: "Settings" },
 ];
 

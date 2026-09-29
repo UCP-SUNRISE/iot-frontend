@@ -82,7 +82,12 @@ function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
     limits.warn_fraction, limits.cooldown_minutes, limits.sht30_max_temp,
     limits.bpw34_max_temp, draft.telemetry.poll_interval_seconds, draft.weather.max_age_seconds,
     draft.training.min_telemetry_points, draft.training.min_weather_coverage,
+    draft.recommendations.retrain_min_new_sessions, draft.recommendations.retrain_max_age_days,
+    draft.recommendations.promote_min_improvement,
   ].some(v => !Number.isFinite(v));
+
+  const setRecommendation = <K extends keyof SystemSettings["recommendations"]>(key: K, value: SystemSettings["recommendations"][K]) =>
+    setDraft(prev => ({ ...prev, recommendations: { ...prev.recommendations, [key]: value } }));
 
   const setTraining = <K extends keyof SystemSettings["training"]>(key: K, value: SystemSettings["training"][K]) =>
     setDraft(prev => ({ ...prev, training: { ...prev.training, [key]: value } }));
@@ -93,7 +98,7 @@ function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
   const handleReset = () =>
     confirm({
       title: "Reset shared settings?",
-      description: "This restores the default sensor limits, telemetry, weather and training rules for every user.",
+      description: "This restores the default sensor limits, telemetry, weather, training and recommendation rules for every user.",
       confirmText: "Reset",
       isDestructive: true,
       onConfirm: resetSystemSettings,
@@ -257,6 +262,39 @@ function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
             </SelectContent>
           </Select>
         </div>
+      </CardContent>
+
+      <CardHeader className="pt-2">
+        <div className="flex items-center gap-2">
+          <CardTitle>Model Recommendations</CardTitle>
+          <Badge variant="outline">Shared</Badge>
+        </div>
+        <CardDescription>
+          When the Models page suggests retraining or switching models. Suggestions never act on their own.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="divide-y">
+        <NumberRow
+          label="Suggest retraining after"
+          hint="Eligible sessions not yet included in the latest training run"
+          value={draft.recommendations.retrain_min_new_sessions}
+          onChange={v => setRecommendation("retrain_min_new_sessions", v)}
+          unit="sess." min={1} max={1000}
+        />
+        <NumberRow
+          label="…or when the latest run is older than"
+          hint="Then any single new eligible session is enough"
+          value={draft.recommendations.retrain_max_age_days}
+          onChange={v => setRecommendation("retrain_max_age_days", v)}
+          unit="days" min={1} max={3650}
+        />
+        <NumberRow
+          label="Suggest switching model at"
+          hint="Lower error on unseen experiments than the active model"
+          value={Math.round(draft.recommendations.promote_min_improvement * 100)}
+          onChange={v => setRecommendation("promote_min_improvement", v / 100)}
+          unit="%" min={0} max={100}
+        />
       </CardContent>
 
       <CardFooter className="justify-between gap-2">

@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SessionRow, SessionTrainingChanges, TrainingModel } from "@/types/session";
 import { parseDbTimestamp } from "@/lib/time";
+import { isSessionList } from "@/lib/sessions";
 import { cn } from "@/lib/utils";
 
 const MODEL_LABELS: Record<TrainingModel, string> = {
@@ -52,11 +53,6 @@ function formatDuration(start: string | null, end: string | null): string {
   const m = Math.floor((totalSecs % 3600) / 60);
   const s2 = totalSecs % 60;
   return [h, m, s2].map(n => String(n).padStart(2, "0")).join(":");
-}
-
-/** `sunrise/db/response` carries every DB query's reply; only a get_sessions reply is a list of session rows. */
-function isSessionList(response: object[]): response is SessionRow[] {
-  return response.every(r => "session_id" in r && "training_eligibility" in r);
 }
 
 function EligibilityBadge({ model, session }: { model: TrainingModel; session: SessionRow }) {
