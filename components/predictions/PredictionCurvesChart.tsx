@@ -1,124 +1,295 @@
-import React from 'react';
+"use client";
+
+import React, { useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
   LineChart,
   Line,
+  Area,
+  AreaChart,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
+  ReferenceLine,
+  ReferenceDot,
+  ResponsiveContainer,
 } from 'recharts';
+import {
+  formatClock,
+  type CookingWindow,
+  type EnvironmentPoint,
+} from '@/hooks/usePredictionsDashboard';
 
 interface PredictionCurvesChartProps {
-  filteredWindows: any[];
+  windows: CookingWindow[];
+  environment: EnvironmentPoint[];
   isForecasting: boolean;
-  hoveredCurveId: string | null;
-  setHoveredCurveId: (id: string | null) => void;
-  selectedCurveId: string | null;
-  handleCurveSelect: (curve: any) => void;
+  selectedWindowId: string | null;
+  hoveredWindowId: string | null;
+  onSelect: (id: string) => void;
+  onHover: (id: string | null) => void;
 }
 
+// Fixed geometry so pointer positions can be mapped back to (time, °C) without Recharts internals.
+const MARGIN = { top: 16, right: 56, bottom: 0, left: 0 };
+const Y_AXIS_WIDTH = 52;
+const X_AXIS_HEIGHT = 30;
+const CHART_HEIGHT = 360;
+const SUN_BAND_HEIGHT = 56;
+const PICK_RADIUS_PX = 48;
+
+function tempAt(w: CookingWindow, t: number): number | null {
+  const pts = w.points;
+  if (!pts.length || t < pts[0].t || t > pts[pts.length - 1].t) return null;
+  let lo = 0, hi = pts.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (pts[mid].t <= t) lo = mid; else hi = mid;
+  }
+  const a = pts[lo], b = pts[hi];
+  return b.t === a.t ? a.temp : a.temp + ((t - a.t) / (b.t - a.t)) * (b.temp - a.temp);
+}
+
+interface HoverState { id: string; x: number; y: number; t: number; temp: number; flip: boolean }
+
 export function PredictionCurvesChart({
-  filteredWindows,
+  windows,
+  environment,
   isForecasting,
-  hoveredCurveId,
-  setHoveredCurveId,
-  selectedCurveId,
-  handleCurveSelect
+  selectedWindowId,
+  hoveredWindowId,
+  onSelect,
+  onHover,
 }: PredictionCurvesChartProps) {
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [pointer, setPointer] = useState<HoverState | null>(null);
+
+  const { tMin, tMax, yMin, yMax } = useMemo(() => {
+    let lo = Infinity, hi = -Infinity, low = Infinity, high = -Infinity;
+    for (const w of windows) for (const p of w.points) {
+      lo = Math.min(lo, p.t); hi = Math.max(hi, p.t);
+      low = Math.min(low, p.temp); high = Math.max(high, p.temp);
+    }
+    return {
+      tMin: lo, tMax: hi,
+      yMin: Math.floor(Math.min(low, 20) / 10) * 10,
+      yMax: Math.max(100, Math.ceil(high / 10) * 10),
+    };
+  }, [windows]);
+
+  // Whole-hour ticks; Recharts would otherwise tick every point of the per-line data.
+  const hourTicks = useMemo(() => {
+    if (!Number.isFinite(tMin) || !Number.isFinite(tMax)) return [];
+    const first = new Date(tMin);
+    first.setMinutes(0, 0, 0);
+    if (first.getTime() < tMin) first.setHours(first.getHours() + 1);
+    const ticks: number[] = [];
+    for (let t = first.getTime(); t <= tMax; t += 3600000) ticks.push(t);
+    return ticks;
+  }, [tMin, tMax]);
+
+  const sunData = useMemo(
+    () => environment.filter(p => p.t >= tMin && p.t <= tMax && p.solar_radiation != null),
+    [environment, tMin, tMax]
+  );
+
+  // Ghosts first, hovered next, selected last — SVG paints later children on top.
+  const ordered = useMemo(() => {
+    const rank = (id: string) => (id === selectedWindowId ? 2 : id === hoveredWindowId ? 1 : 0);
+    return [...windows].sort((a, b) => rank(a.id) - rank(b.id));
+  }, [windows, selectedWindowId, hoveredWindowId]);
+
+  const selected = windows.find(w => w.id === selectedWindowId);
+  const selectedEnd = selected?.points[selected.points.length - 1];
+
+  const nearestAt = (clientX: number, clientY: number): HoverState | null => {
+    const el = plotRef.current;
+    if (!el || !windows.length) return null;
+    const rect = el.getBoundingClientRect();
+    const left = MARGIN.left + Y_AXIS_WIDTH;
+    const right = rect.width - MARGIN.right;
+    const top = MARGIN.top;
+    const bottom = CHART_HEIGHT - MARGIN.bottom - X_AXIS_HEIGHT;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    if (x < left || x > right || y < top - PICK_RADIUS_PX || y > bottom + PICK_RADIUS_PX) return null;
+
+    const t = tMin + ((x - left) / (right - left)) * (tMax - tMin);
+    const toPx = (temp: number) => bottom - ((temp - yMin) / (yMax - yMin)) * (bottom - top);
+
+    let best: HoverState | null = null;
+    let bestDist = PICK_RADIUS_PX;
+    for (const w of windows) {
+      const temp = tempAt(w, t);
+      if (temp === null) continue;
+      const dist = Math.abs(toPx(temp) - y);
+      if (dist < bestDist) { bestDist = dist; best = { id: w.id, x, y: toPx(temp), t, temp, flip: x > rect.width / 2 }; }
+    }
+    return best;
+  };
+
+  const handleMove = (e: React.MouseEvent) => {
+    const hit = nearestAt(e.clientX, e.clientY);
+    setPointer(hit);
+    if ((hit?.id ?? null) !== hoveredWindowId) onHover(hit?.id ?? null);
+  };
+
+  const handleLeave = () => {
+    setPointer(null);
+    onHover(null);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    const hit = nearestAt(e.clientX, e.clientY);
+    if (hit) onSelect(hit.id);
+  };
+
+  const hoveredLabel = windows.find(w => w.id === pointer?.id)?.label;
+  const empty = windows.length === 0;
+
   return (
-    <div className="bg-card text-card-foreground shadow-sm rounded-lg p-6 border border-border flex flex-col flex-grow relative h-full min-h-[400px]">
-      <h2 className="text-xl font-bold mb-6">Predicted Water Temperature Curves</h2>
+    <div className="relative">
+      {isForecasting && (
+        <div className="absolute inset-0 z-10 bg-card/70 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg">
+          <Loader2 className="w-10 h-10 text-sun animate-spin motion-reduce:animate-none mb-3" />
+          <p className="text-foreground font-medium">Predicting water temperature…</p>
+        </div>
+      )}
 
-      <div className="flex-grow relative h-[400px]">
-        {isForecasting && (
-          <div className="absolute inset-0 z-10 bg-background/70 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg border border-border">
-            <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-            <p className="text-foreground font-medium">Crunching simulation data...</p>
-          </div>
-        )}
-
-        {(!filteredWindows || filteredWindows.length === 0) && !isForecasting ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg bg-muted/30 text-muted-foreground">
-            <p className="font-medium text-foreground">No prediction curves matching criteria</p>
-            <p className="text-sm mt-1 text-muted-foreground">Try adjusting your filters or date</p>
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <XAxis
-                dataKey="timestamp"
-                stroke="var(--muted-foreground)"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                dy={10}
-                allowDuplicatedCategory={false}
-                tickFormatter={(value: any) => {
-                  // Splits "2026-06-01 09:21:00" and returns "09:21"
-                  if (typeof value === 'string' && value.includes(' ')) {
-                    const timePart = value.split(' ')[1];
-                    return timePart ? timePart.substring(0, 5) : value; // Change to (0, 8) if you want to keep the seconds
-                  }
-                  // Fallback for timestamps that are just numbers or Date objects
-                  if (typeof value === 'number' || value instanceof Date) {
-                    return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  }
-                  return value;
-                }}
-              />
-              <YAxis
-                domain={['auto', 'auto']}
-                stroke="#ef4444"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val) => `${val}°C`}
-                dx={-10}
-              />
-              <Tooltip
-                trigger="click"
-                shared={false}
-                formatter={(value: any) => [`${Number(value).toFixed(2)}°C`]}
-                contentStyle={{
-                  borderRadius: '12px',
-                  border: '1px solid var(--border)',
-                  backgroundColor: 'var(--card)',
-                  color: 'var(--card-foreground)',
-                  boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)'
-                }}
-              />
-              <Legend wrapperStyle={{ paddingTop: '20px' }} />
-
-              {filteredWindows.map((curve: any, index: number) => {
-                const curveData = curve.water_temp_curve || curve.data || [];
-                const dKey = curve.dataKey || "predicted_water_temp";
-                return (
-                  <Line
-                    key={curve.id || index}
-                    data={curveData}
+      {empty && !isForecasting ? (
+        <div className="flex h-[416px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 text-center">
+          <p className="font-medium text-foreground">No cooking curves for this day</p>
+          <p className="mt-1 text-sm text-muted-foreground">Pick another date, or refresh the forecast.</p>
+        </div>
+      ) : (
+        <>
+          {/* Sun strength on the same time axis as the curves: explains why later starts heat slower. */}
+          <div className="relative" style={{ height: SUN_BAND_HEIGHT }} aria-hidden="true">
+            <span className="absolute left-0 top-1 text-xs text-muted-foreground">Sun</span>
+            {sunData.length > 0 && (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={sunData} margin={{ ...MARGIN, top: 4 }}>
+                  <XAxis dataKey="t" type="number" domain={[tMin, tMax]} hide />
+                  <YAxis width={Y_AXIS_WIDTH} domain={[0, 'dataMax']} tick={false} axisLine={false} tickLine={false} />
+                  <Area
                     type="monotone"
-                    dataKey={dKey}
-                    name={curve.name || `Window ${curve.id || index}`}
-                    stroke={selectedCurveId === curve.id ? "#ef4444" : "#f87171"}
-                    strokeWidth={selectedCurveId === curve.id ? 3 : 2}
-                    strokeOpacity={hoveredCurveId !== null && hoveredCurveId !== curve.id ? 0.2 : 1}
-                    dot={false}
-                    activeDot={{ r: 6 }}
-                    onMouseEnter={() => setHoveredCurveId(curve.id)}
-                    onMouseLeave={() => setHoveredCurveId(null)}
-                    onClick={() => handleCurveSelect(curve)}
-                    style={{ cursor: 'pointer' }}
+                    dataKey="solar_radiation"
+                    stroke="var(--sun)"
+                    strokeOpacity={0.6}
+                    fill="var(--sun)"
+                    fillOpacity={0.15}
+                    isAnimationActive={false}
                   />
-                );
-              })}
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div
+            ref={plotRef}
+            className="relative cursor-crosshair select-none"
+            style={{ height: CHART_HEIGHT, cursor: pointer ? 'pointer' : undefined }}
+            onMouseMove={handleMove}
+            onMouseLeave={handleLeave}
+            onClick={handleClick}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              {/* The start-time chips are the keyboard path; skip Recharts' focusable SVG layer. */}
+              <LineChart margin={MARGIN} accessibilityLayer={false}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                <XAxis
+                  dataKey="t"
+                  type="number"
+                  domain={[tMin, tMax]}
+                  height={X_AXIS_HEIGHT}
+                  scale="time"
+                  tickFormatter={formatClock}
+                  stroke="var(--muted-foreground)"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  ticks={hourTicks}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  width={Y_AXIS_WIDTH}
+                  domain={[yMin, yMax]}
+                  stroke="var(--muted-foreground)"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val) => `${val} °C`}
+                />
+                <ReferenceLine
+                  y={90}
+                  stroke="var(--muted-foreground)"
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.6}
+                  label={{ value: '90 °C', position: 'right', fill: 'var(--muted-foreground)', fontSize: 11 }}
+                />
+
+                {ordered.map(w => {
+                  const isSelected = w.id === selectedWindowId;
+                  const isHovered = w.id === hoveredWindowId;
+                  return (
+                    <Line
+                      key={w.id}
+                      data={w.points}
+                      dataKey="temp"
+                      type="monotone"
+                      dot={false}
+                      activeDot={false}
+                      isAnimationActive={false}
+                      stroke={isSelected || isHovered ? 'var(--sun)' : 'var(--muted-foreground)'}
+                      strokeWidth={isSelected ? 3.5 : isHovered ? 2 : 1.25}
+                      strokeOpacity={isSelected ? 1 : isHovered ? 0.7 : 0.3}
+                    />
+                  );
+                })}
+
+                {selected && selectedEnd && (
+                  <ReferenceDot
+                    x={selectedEnd.t}
+                    y={selectedEnd.temp}
+                    r={4}
+                    fill="var(--sun)"
+                    stroke="none"
+                    label={{
+                      value: selected.label,
+                      position: 'top',
+                      offset: 10,
+                      fill: 'var(--sun)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      // Card-coloured halo keeps the label legible over the ghost curves.
+                      stroke: 'var(--card)',
+                      strokeWidth: 4,
+                      paintOrder: 'stroke',
+                    }}
+                  />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+
+            {pointer && hoveredLabel && (
+              <div
+                className="pointer-events-none absolute z-20 rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md"
+                style={{
+                  left: pointer.x,
+                  top: pointer.y,
+                  transform: `translate(${pointer.flip ?'calc(-100% - 12px)' : '12px'}, -50%)`,
+                }}
+              >
+                <div className="font-semibold text-sun">Start {hoveredLabel}</div>
+                <div className="tabular-nums text-muted-foreground">
+                  {pointer.temp.toFixed(1)} °C at {formatClock(pointer.t)}
+                </div>
+                {pointer.id !== selectedWindowId && <div className="text-muted-foreground">Click to select</div>}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -17,12 +17,21 @@ export interface UiSettings {
     visible: boolean;
     metrics: Record<SpatialMetric, boolean>;
   };
+  hardness: {
+    /** Predicted TPA hardness (N) at or below which chickpeas count as cooked. */
+    cookedThresholdN: number;
+  };
 }
+
+export const DEFAULT_COOKED_THRESHOLD_N = 1500;
 
 export const DEFAULT_UI_SETTINGS: UiSettings = {
   spatial: {
     visible: false,
     metrics: { temperature: true, humidity: true, light: true },
+  },
+  hardness: {
+    cookedThresholdN: DEFAULT_COOKED_THRESHOLD_N,
   },
 };
 
@@ -36,6 +45,7 @@ function mergeWithDefaults(stored: Partial<UiSettings> | null): UiSettings {
       ...stored?.spatial,
       metrics: { ...DEFAULT_UI_SETTINGS.spatial.metrics, ...stored?.spatial?.metrics },
     },
+    hardness: { ...DEFAULT_UI_SETTINGS.hardness, ...stored?.hardness },
   };
 }
 
@@ -124,4 +134,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
 export function useSettings() {
   return useContext(SettingsContext);
+}
+
+/** The cooked-hardness threshold (N), shared by the predictions page and Settings. */
+export function useCookedThreshold() {
+  const { settings, updateSettings } = useSettings();
+  const setThreshold = useCallback((value: number) => {
+    if (!Number.isFinite(value) || value <= 0) return;
+    updateSettings(prev => ({ ...prev, hardness: { ...prev.hardness, cookedThresholdN: value } }));
+  }, [updateSettings]);
+  return [settings.hardness.cookedThresholdN, setThreshold] as const;
 }

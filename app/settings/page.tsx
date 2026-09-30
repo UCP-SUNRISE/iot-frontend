@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useSettings, SpatialMetric } from "@/contexts/SettingsContext";
 import { SystemSettingsCard } from "@/components/settings/SystemSettingsCard";
+import { CookedThresholdInput } from "@/components/predictions/CookedThresholdInput";
 
 const SPATIAL_METRICS: { key: SpatialMetric; label: string; hint: string }[] = [
   { key: "temperature", label: "Temperature", hint: "SHT30 air temperature per cube node" },
@@ -84,6 +85,24 @@ export default withPageAuthRequired(function SettingsPage() {
               disabled={!spatial.visible}
             />
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Hardness forecast</CardTitle>
+          <CardDescription>
+            Decides when the predictions page marks chickpeas as cooked.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <label htmlFor="settings-cooked-threshold" className="flex items-center justify-between gap-4 py-3">
+            <div className="space-y-0.5">
+              <div className="text-sm font-medium">Cooked threshold (chickpea)</div>
+              <div className="text-xs text-muted-foreground">Predicted hardness at or below this value counts as cooked</div>
+            </div>
+            <CookedThresholdInput id="settings-cooked-threshold" />
+          </label>
         </CardContent>
       </Card>
     </main>
