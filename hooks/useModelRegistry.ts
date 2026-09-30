@@ -2,19 +2,24 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { toast } from "sonner";
 import { useMqtt } from "@/contexts/MqttContext";
-import { ModelRegistry, TrainingJob } from "@/types/models";
+import { ModelCandidate, ModelRegistry, TrainOptions, TrainingJob, TrainingRunDetail } from "@/types/models";
 import { TrainingModel } from "@/types/session";
 
 const MODELS_TIMEOUT_MS = 15000;
+// A run's full record with predictions is the largest response (hundreds of kB)
+const RUN_DETAIL_TIMEOUT_MS = 45000;
+
+const errorText = (e: unknown) => (e instanceof Error ? e.message : undefined);
 
 /**
- * Model registry for one model type: the list of training runs, the active model,
- * the live training job, and train/activate actions (all over the Edge Server's ML bridge).
+ * Model registry for one model type: training runs, the active model, the model library,
+ * the live training job, and the actions on them (all over the Edge Server's ML bridge).
  */
 export function useModelRegistry(model: TrainingModel) {
   const { makeRpcCall, isConnected, trainingJobs } = useMqtt();
   const { user } = useUser();
   const [registry, setRegistry] = useState<ModelRegistry | null>(null);
+  const [candidates, setCandidates] = useState<ModelCandidate[]>([]);
   const [error, setError] = useState<string | null>(null);
   // Async transition: React tracks the pending state, so no setState runs synchronously in effects
   const [isLoading, startLoading] = useTransition();
@@ -23,23 +28,31 @@ export function useModelRegistry(model: TrainingModel) {
   const isTraining = job?.status === "queued" || job?.status === "running";
   const userName = user?.name ?? user?.email ?? null;
 
+  const call = useCallback(
+    <T,>(topic: string, payload: object, timeoutMs = MODELS_TIMEOUT_MS) =>
+      makeRpcCall<T>(`sunrise/ml/${topic}/request`, `sunrise/ml/${topic}/response`, { model, user: userName, ...payload }, { timeoutMs }),
+    [makeRpcCall, model, userName]
+  );
+
   const refresh = useCallback(() => {
     startLoading(async () => {
       try {
-        const response = await makeRpcCall<ModelRegistry>(
-          "sunrise/ml/models/request", "sunrise/ml/models/response", { model }, { timeoutMs: MODELS_TIMEOUT_MS }
-        );
-        setRegistry(response);
+        setRegistry(await call<ModelRegistry>("models", {}));
         setError(null);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load models");
+        setError(errorText(e) ?? "Failed to load models");
       }
     });
-  }, [makeRpcCall, model]);
+  }, [call]);
 
   useEffect(() => {
-    if (isConnected) refresh();
-  }, [isConnected, refresh]);
+    if (!isConnected) return;
+    refresh();
+    // The library only changes with a new service version, so it is loaded once per visit
+    call<{ candidates: ModelCandidate[] }>("candidates", {})
+      .then(response => setCandidates(response.candidates))
+      .catch(e => console.error("Failed to load the model library", e));
+  }, [isConnected, refresh, call]);
 
   // Notify and reload when a job seen running during this visit finishes. A job that
   // had already finished before the page opened (retained status) is ignored.
@@ -56,39 +69,82 @@ export function useModelRegistry(model: TrainingModel) {
         description: `Recommended: ${job.result?.recommended_model ?? "—"}. Review it before activating.`,
       });
       refresh();
+    } else if (job.status === "cancelled") {
+      toast.info("Training cancelled", { description: "No run was saved." });
     } else {
       toast.error("Training failed", { description: job.error ?? undefined });
     }
   }, [job, model, refresh]);
 
-  const train = useCallback(async () => {
+  const train = useCallback(async (options: TrainOptions) => {
     setIsStarting(true);
     try {
-      const started = await makeRpcCall<TrainingJob>(
-        "sunrise/ml/train/request", "sunrise/ml/train/response", { model, user: userName }, { timeoutMs: 45000 }
-      );
+      const started = await call<TrainingJob>("train", {
+        candidates: options.candidates ?? null, tune: options.tune, label: options.label || null,
+      }, 45000);
       // A very short job may finish before its first "running" status arrives
       seenRunning.current.add(started.job_id);
       toast.info("Training started", { description: "Progress is shown below; you can leave this page." });
+      return true;
     } catch (e) {
-      toast.error("Could not start training", { description: e instanceof Error ? e.message : undefined });
+      toast.error("Could not start training", { description: errorText(e) });
+      return false;
     } finally {
       setIsStarting(false);
     }
-  }, [makeRpcCall, model, userName]);
+  }, [call]);
+
+  const cancel = useCallback(async () => {
+    if (!job) return;
+    try {
+      await call("train/cancel", { job_id: job.job_id });
+      toast.info("Cancelling…", { description: "Training stops at the end of the current validation step." });
+    } catch (e) {
+      toast.error("Could not cancel training", { description: errorText(e) });
+    }
+  }, [call, job]);
 
   const activate = useCallback(async (runId: string, modelName: string) => {
     try {
-      await makeRpcCall(
-        "sunrise/ml/models/activate/request", "sunrise/ml/models/activate/response",
-        { model, run_id: runId, model_name: modelName, user: userName }, { timeoutMs: MODELS_TIMEOUT_MS }
-      );
+      await call("models/activate", { run_id: runId, model_name: modelName });
       toast.success(`${modelName} is now the active ${model} model`);
       refresh();
     } catch (e) {
-      toast.error("Activation failed", { description: e instanceof Error ? e.message : undefined });
+      toast.error("Activation failed", { description: errorText(e) });
     }
-  }, [makeRpcCall, model, refresh, userName]);
+  }, [call, model, refresh]);
 
-  return { registry, error, isLoading, refresh, job, isTraining, isStarting, train, activate };
+  /** The full record of a run; pass `predictions` to include every out-of-fold prediction. */
+  const loadRun = useCallback(
+    (runId: string, predictions: boolean) =>
+      call<TrainingRunDetail>("runs/detail", { run_id: runId, predictions }, RUN_DETAIL_TIMEOUT_MS),
+    [call]
+  );
+
+  const annotate = useCallback(async (runId: string, label: string, notes: string) => {
+    try {
+      await call("runs/annotate", { run_id: runId, label, notes });
+      toast.success("Run notes saved");
+      refresh();
+      return true;
+    } catch (e) {
+      toast.error("Notes not saved", { description: errorText(e) });
+      return false;
+    }
+  }, [call, refresh]);
+
+  const remove = useCallback(async (runId: string) => {
+    try {
+      await call("runs/delete", { run_id: runId });
+      toast.success(`Run ${runId} deleted`);
+      refresh();
+    } catch (e) {
+      toast.error("Run not deleted", { description: errorText(e) });
+    }
+  }, [call, refresh]);
+
+  return {
+    registry, candidates, error, isLoading, refresh, job, isTraining, isStarting,
+    train, cancel, activate, loadRun, annotate, remove,
+  };
 }

@@ -19,6 +19,19 @@ export function formatError(value: number, model: TrainingModel): string {
   return model === "kinetics" ? value.toFixed(2) : value.toFixed(0);
 }
 
+/** "45 s", "3 min", "1 h 20 min": coarse on purpose, these are estimates. */
+export function formatDuration(seconds: number): string {
+  if (seconds < 90) return `${Math.max(1, Math.round(seconds))} s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+}
+
+/** Experiment ids are "session:<id>" or "baseline:<file>:<n>" / "baseline:<batch>"; drop the prefix for display. */
+export function shortExperimentId(id: string): string {
+  return id.replace(/^(session|baseline):/, "");
+}
+
 export function formatRunDate(iso: string): string {
   const date = new Date(iso);
   return isNaN(date.getTime()) ? iso : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });

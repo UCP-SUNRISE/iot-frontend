@@ -5,23 +5,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Recommendation } from "@/lib/modelRecommendations";
 import { TrainingJob } from "@/types/models";
-import { SessionRow, TrainingModel } from "@/types/session";
+import { formatDuration } from "./format";
 
-export function TrainingPanel({ model, job, isTraining, isStarting, isConnected, sessions, includeBaseline, recommendations, onTrain, onActivateRecommended }: {
-  model: TrainingModel;
+export function TrainingPanel({ job, isTraining, isStarting, isConnected, eligibleSessions, blockedSessions, includeBaseline, recommendations, onTrain, onCancel, onActivateRecommended }: {
   job?: TrainingJob;
   isTraining: boolean;
   isStarting: boolean;
   isConnected: boolean;
-  sessions: SessionRow[];
+  eligibleSessions: number;
+  /** Finished sessions that do not pass the eligibility rules yet. */
+  blockedSessions: number;
   includeBaseline: boolean;
   recommendations: Recommendation[];
+  /** Opens the train dialog. */
   onTrain: () => void;
+  onCancel: () => void;
   onActivateRecommended: (rec: Extract<Recommendation, { kind: "activate" }>) => void;
 }) {
-  const eligible = sessions.filter(s => s.training_eligibility[model].eligible).length;
-  const blocked = sessions.filter(s => !s.is_active && !s.training_eligibility[model].eligible).length;
-  const canTrain = isConnected && !isTraining && !isStarting && (eligible > 0 || includeBaseline);
+  const canTrain = isConnected && !isTraining && !isStarting && (eligibleSessions > 0 || includeBaseline);
+  const isCancelling = job?.message === "Cancelling…";
 
   return (
     <Card>
@@ -29,8 +31,8 @@ export function TrainingPanel({ model, job, isTraining, isStarting, isConnected,
         <div className="space-y-1">
           <CardTitle>Training</CardTitle>
           <CardDescription>
-            {eligible} eligible session(s){includeBaseline ? " + historical datasets" : ""}.
-            {blocked > 0 && ` ${blocked} finished session(s) are not eligible yet — see History.`}
+            {eligibleSessions} eligible session(s){includeBaseline ? " + historical datasets" : ""}.
+            {blockedSessions > 0 && ` ${blockedSessions} finished session(s) are not eligible yet — see History.`}
             {" "}Every candidate is validated by holding out one experiment at a time.
           </CardDescription>
         </div>
@@ -41,11 +43,18 @@ export function TrainingPanel({ model, job, isTraining, isStarting, isConnected,
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {job && (job.status === "queued" || job.status === "running") && (
+        {job && isTraining && (
           <div className="space-y-1.5" aria-live="polite">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{job.message}</span>
-              <span className="tabular-nums">{Math.round(job.progress * 100)}%</span>
+            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span className="truncate">{job.message}</span>
+              <span className="flex items-center gap-3 shrink-0 tabular-nums">
+                {job.elapsed_seconds != null && <span>{formatDuration(job.elapsed_seconds)} elapsed</span>}
+                {job.eta_seconds != null && <span>about {formatDuration(job.eta_seconds)} left</span>}
+                <span>{Math.round(job.progress * 100)}%</span>
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-destructive" onClick={onCancel} disabled={isCancelling}>
+                  Cancel
+                </Button>
+              </span>
             </div>
             <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
               <div className="h-full bg-primary transition-all duration-500" style={{ width: `${job.progress * 100}%` }} />
